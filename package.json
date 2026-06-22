@@ -1,0 +1,34 @@
+{
+  "name": "zklaim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private medical claims on Stellar with zero-knowledge proofs",
+  "workspaces": [
+    "app",
+    "scripts",
+    "tests",
+    "client/proof_gen"
+  ],
+  "scripts": {
+    "install:toolchain": "wsl bash ./scripts/install_toolchain_wsl.sh",
+    "verify:toolchain": "powershell -File scripts/verify_toolchain.ps1",
+    "build:trees": "npm run build -w scripts",
+    "test:trees": "npm run test -w tests",
+    "build:app": "npm run build -w app",
+    "typecheck": "npm run typecheck -w scripts",
+    "test": "npm run build:trees && npm run test:trees && npm run build:app",
+    "generate:circuit-vectors": "npm run generate:circuit-vectors -w scripts",
+    "test:circuits": "wsl bash ./scripts/test_circuits.sh",
+    "build:circuits": "wsl bash ./scripts/build_circuits.sh",
+    "verify:circuits": "npm run test:circuits",
+    "build:contracts": "wsl bash ./scripts/build_contracts.sh",
+    "test:contracts": "wsl bash ./scripts/test_contracts.sh",
+    "export:vks": "wsl bash ./scripts/export_vks.sh",
+    "init:vks": "wsl bash ./scripts/init_vks.sh",
+    "export:proof-fixtures": "npm run generate:circuit-vectors -w scripts && bash scripts/test_circuits.sh && tsx scripts/export_proof_fixtures.ts",
+    "dev": "npm run dev -w app"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "circuits": {
+    "policy_validity": {
+      "proof_path": "contracts/test_fixtures/policy_validity.proof.bin",
+      "vk_path": "contracts/test_fixtures/policy_validity.vk.bin",
+      "prover_fields": {
+        "coverage_merkle_root": "0x080072aa0d6d0b1dc8a2b727b484ee6c2b4fd0e6280bbe256f3373fd4120f271",
+        "policy_commitment": "0x2e339f42d0af4db9994a4050f0f59977fa4eaeef7912a2c36998d4d3f3005c82",
+        "claim_hash": "0x1acba43989a7d30d5d78ee024d7a85107e175cc18b11a0888d9d6bde7c65cad7",
+        "icd_code": "0x19cce9bb57ce5fd647afba497e7ea7a2d7cc17b786468f6ebc1e0a6c0fffffff",
+        "policy_secret": "0x1d1c852459e73e48fd6ca815d8a85d7b3dde1dcdf7c7fcaacf25e8a01eadbeeb"
+      }
+    },
+    "amount_range": {
+      "proof_path": "contracts/test_fixtures/amount_range.proof.bin",
+      "vk_path": "contracts/test_fixtures/amount_range.vk.bin",
+      "prover_fields": {
+        "amount_commitment": "0x04a62ac07682a17252c8a91627fb869191e4811c2a7c80efe6d6bf6baf289e08",
+        "policy_bounds_hash": "0x19f0391ad3a38bcb0c4b83f193cacb340e48e1980615c6c8edad59f8234b4d57",
+        "claim_hash": "0x1acba43989a7d30d5d78ee024d7a85107e175cc18b11a0888d9d6bde7c65cad7",
+        "blinding_factor": "0x2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    },
+    "doctor_attestation": {
+      "proof_path": "contracts/test_fixtures/doctor_attestation.proof.bin",
+      "vk_path": "contracts/test_fixtures/doctor_attestation.vk.bin",
+      "prover_fields": {
+        "asp_merkle_root": "0x27d0c85ac20c778719d99f0aa8bdb20a3ea17ad1bf8c48a9a6ee57994ee08dd5",
+        "doctor_commitment": "0x24f1acb00ca3e27f1d1ad05e910b72b7c061c986c66310f12fee1415c90a00db",
+        "claim_hash": "0x1acba43989a7d30d5d78ee024d7a85107e175cc18b11a0888d9d6bde7c65cad7",
+        "attestation_hash": "0x0ad2855a17c83c0c716c837217eecc0d17753325f45dfb6266534d72b8e17b98",
+        "doctor_secret": "0x2d872f2aa08daf7ce0928855809d9e212e1d78c86d498b612906535de8b0f854",
+        "claim_data_secret": "0x14a5d88da300bfac8f5f7492fcfd4f45af982f6f0c8d1edd783c14d81ffffffe"
+      }
+    },
+    "deductible_accumulator": {
+      "proof_path": "contracts/test_fixtures/deductible_accumulator.proof.bin",
+      "vk_path": "contracts/test_fixtures/deductible_accumulator.vk.bin",
+      "prover_fields": {
+        "prev_accumulator_commit": "0x2f19a0d4bc38f99ed782ba2757e3172a33781148b72881504687724dd9a16850",
+        "new_accumulator_commit": "0x2d32e6e334fecb2fb789aa2a47a087489f29fc0ffc6456dc9f1741b3c4d6668d",
+        "new_amount_commit": "0x1f84d3e8c8d93ef3e0b022785c3177c5a435c8c652a854f882e730df27f9dc53",
+        "claim_hash": "0x1acba43989a7d30d5d78ee024d7a85107e175cc18b11a0888d9d6bde7c65cad7",
+        "prev_accumulator_secret": "0x0000000000000000000000000000000000000000000000000000000000013880",
+        "new_amount_blinding": "0x02cee4c0520193097ae2ed7cb1b1dad60aff4aeab979c2a1ef513d9f43333332"
+      }
+    }
+  }
+}

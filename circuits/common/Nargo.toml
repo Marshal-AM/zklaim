@@ -1,0 +1,7 @@
+[package]
+name = "zklaim_common"
+type = "lib"
+authors = ["ZKlaim"]
+compiler_version = ">=1.0.0"
+
+[dependencies]

@@ -1,0 +1,7 @@
+[package]
+name = "test_fixtures"
+type = "lib"
+authors = ["ZKlaim"]
+compiler_version = ">=1.0.0"
+
+[dependencies]

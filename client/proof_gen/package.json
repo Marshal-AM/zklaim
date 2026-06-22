@@ -1,0 +1,14 @@
+{
+  "name": "@zklaim/proof-gen",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./lib/*": "./lib/*"
+  },
+  "dependencies": {
+    "@zklaim/scripts": "file:../../scripts"
+  }
+}

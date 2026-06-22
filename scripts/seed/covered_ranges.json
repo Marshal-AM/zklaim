@@ -1,0 +1,17 @@
+[
+  {
+    "min_code": "J00",
+    "max_code": "J99",
+    "category_label": "Respiratory"
+  },
+  {
+    "min_code": "F01",
+    "max_code": "F99",
+    "category_label": "Mental health"
+  },
+  {
+    "min_code": "C00",
+    "max_code": "C97",
+    "category_label": "Oncology"
+  }
+]

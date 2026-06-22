@@ -1,0 +1,9 @@
+[package]
+name = "amount_range"
+type = "bin"
+authors = ["ZKlaim"]
+compiler_version = ">=1.0.0"
+
+[dependencies]
+zklaim_common = { path = "../common" }
+test_fixtures = { path = "../test_fixtures" }

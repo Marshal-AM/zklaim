@@ -1,0 +1,20 @@
+[
+  {
+    "icd_code": "J18.9",
+    "billing_amount_range": [500000, 999999],
+    "provider_pattern": "UNLICENSED",
+    "description": "Pneumonia billed in suspicious high range by unlicensed pattern"
+  },
+  {
+    "icd_code": "F32.9",
+    "billing_amount_range": [1, 9999],
+    "provider_pattern": "GHOST_CLINIC",
+    "description": "Depression claims from ghost clinic pattern"
+  },
+  {
+    "icd_code": "C34.90",
+    "billing_amount_range": [100000, 500000],
+    "provider_pattern": "UPCODING",
+    "description": "Lung cancer upcoding pattern"
+  }
+]

@@ -1,0 +1,29 @@
+{
+  "enrolled": [
+    {
+      "wallet_address": "GDRPHDEMOENROLLEDDOCTOR00000000000000000000000001",
+      "license_id": "MD-001",
+      "specialty_code": "PULM",
+      "jurisdiction": "US-CA"
+    },
+    {
+      "wallet_address": "GDRPHDEMOENROLLEDDOCTOR00000000000000000000000002",
+      "license_id": "MD-002",
+      "specialty_code": "PSY",
+      "jurisdiction": "US-NY"
+    },
+    {
+      "wallet_address": "GDRPHDEMOENROLLEDDOCTOR00000000000000000000000003",
+      "license_id": "MD-003",
+      "specialty_code": "ONC",
+      "jurisdiction": "US-TX"
+    }
+  ],
+  "unenrolled": {
+    "wallet_address": "GDRPHDEMOUNENROLLEDDOCTOR000000000000000000000001",
+    "license_id": "MD-FAKE",
+    "specialty_code": "UNK",
+    "jurisdiction": "US-XX",
+    "note": "Demo C — not in ASP tree"
+  }
+}

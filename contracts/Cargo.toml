@@ -1,0 +1,33 @@
+[workspace]
+resolver = "2"
+members = [
+    "common",
+    "ultrahonk_verifier",
+    "asp_membership",
+    "asp_nonmembership",
+    "policy_registry",
+    "claim_escrow",
+    "deductible_tracker",
+]
+
+[workspace.dependencies]
+soroban-sdk = "26.1.0"
+zklaim-common = { path = "common" }
+ultrahonk_soroban_verifier = { git = "https://github.com/NethermindEth/rs-soroban-ultrahonk", package = "ultrahonk_soroban_verifier" }
+
+[patch."https://github.com/NethermindEth/rs-soroban-ultrahonk"]
+soroban-sdk = { version = "26.1.0" }
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
+
+[profile.release-with-logs]
+inherits = "release"
+debug-assertions = true

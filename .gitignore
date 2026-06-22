@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+
+# Noir
+circuits/**/target/
+
+# Rust / Soroban
+target/
+**/*.rs.bk
+contracts/**/test_snapshots/
+contracts/test_fixtures/*.bin
+contracts/test_fixtures/vks/
+
+# Build outputs
+dist/
+build/
+client/wasm/*.wasm
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Generated artifacts (rebuilt via npm run build:trees)
+scripts/artifacts/*.json
+!scripts/artifacts/.gitkeep
+
+# App public copies (regenerated)
+app/public/trees/*.json
+!app/public/trees/.gitkeep

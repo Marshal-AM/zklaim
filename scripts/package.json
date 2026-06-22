@@ -1,0 +1,29 @@
+{
+  "name": "@zklaim/scripts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./lib/index.ts",
+    "./lib/*": "./lib/*"
+  },
+  "scripts": {
+    "build": "tsx build_all.ts",
+    "vectors": "tsx generate_poseidon_vectors.ts",
+    "typecheck": "tsc --noEmit",
+    "build:policy": "tsx build_policy_tree.ts",
+    "build:asp": "tsx build_asp_tree.ts",
+    "build:fraud": "tsx build_fraud_tree.ts",
+    "generate:circuit-vectors": "tsx generate_circuit_vectors.ts",
+    "prove:circuits": "tsx prove_circuits.ts"
+  },
+  "dependencies": {
+    "@aztec/bb.js": "^4.3.1",
+    "@noble/curves": "^1.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

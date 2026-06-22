@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "common",
+    "test_fixtures",
+    "policy_validity",
+    "amount_range",
+    "doctor_attestation",
+    "deductible_accumulator",
+    "poseidon_reference",
+]

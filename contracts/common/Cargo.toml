@@ -1,0 +1,9 @@
+[package]
+name = "zklaim-common"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+soroban-sdk = { workspace = true, features = ["hazmat-crypto"] }
+soroban-poseidon = "26.0.0"

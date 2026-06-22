@@ -1,0 +1,27 @@
+{
+  "policy_id": "DEMO-POLICY-001",
+  "visit_date": 20260622,
+  "nonce": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+  "policy_secret": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+  "diagnosis_secret": "0xcafebabecafebabecafebabecafebabecafebabecafebabecafebabecafebabe",
+  "random_nonce": "0x1111111111111111111111111111111111111111111111111111111111111111",
+  "demo_a": {
+    "icd_code": "J18.9",
+    "raw_amount_cents": 120000,
+    "policy_floor_cents": 10000,
+    "policy_ceiling_cents": 500000,
+    "blinding_factor": "0x2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "demo_b": {
+    "prev_accumulator_secret": 80000,
+    "new_amount_cents": 40000,
+    "deductible_limit_cents": 100000,
+    "blinding_factor": "0x3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "demo_b_below_threshold": {
+    "prev_accumulator_secret": 50000,
+    "new_amount_cents": 40000,
+    "deductible_limit_cents": 100000,
+    "blinding_factor": "0x4444444444444444444444444444444444444444444444444444444444444444"
+  }
+}
