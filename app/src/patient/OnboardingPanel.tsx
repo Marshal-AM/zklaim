@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ensureWalletConnected } from "../components/WalletButton";
+import { ensureWalletConnected } from "../lib/walletSession";
 import { generateBoxKeypair } from "../lib/claimToken";
 import { env } from "../config/env";
 import { freighterSignMessage } from "../lib/freighter";
@@ -8,6 +8,8 @@ import { registerPatientProfile } from "../lib/patientProfile";
 import { savePatientIdentity } from "../lib/persistence";
 import { usePatientStore, type PatientIdentity } from "../store/patientStore";
 import { useWalletStore } from "../store/wallet";
+import { ErrorBanner } from "../components/ErrorBanner";
+import { SectionCard } from "../components/ui/SectionCard";
 
 export function OnboardingPanel() {
   const setIdentity = usePatientStore((s) => s.setIdentity);
@@ -51,35 +53,37 @@ export function OnboardingPanel() {
   }
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-6 space-y-4">
-      <h3 className="font-medium text-lg">Set up your ZKlaim identity</h3>
-      <p className="text-sm text-slate-400">
+    <SectionCard
+      label="Onboarding"
+      title="Set up your ZKlaim identity"
+    >
+      <p className="text-sm text-muted-foreground">
         Connect Freighter (testnet), then generate your private policy secrets
         and encryption keys. Everything stays in your browser (OPFS).
         {env.isSupabaseEnabled()
           ? " Your public encryption key is registered so doctors can send claims by Stellar address only."
           : ""}
       </p>
-      {error && <p className="text-sm text-red-400">{error}</p>}
-      {registered && (
-        <p className="text-sm text-emerald-400">
+      {error ? <ErrorBanner message={error} /> : null}
+      {registered ? (
+        <div className="success-card px-4 py-3 text-sm text-success">
           Registered in ZKlaim directory. Doctors can find you by your Stellar
           address.
-        </p>
-      )}
+        </div>
+      ) : null}
       <button
         type="button"
         disabled={busy}
         onClick={handleOnboard}
-        className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-medium"
+        className="btn-primary"
       >
         {busy ? "Setting up…" : "Connect & Generate Identity"}
       </button>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-subtle">
         Use the header wallet button to connect Freighter, fund testnet XLM, and
         enable your USDC trustline before submitting claims.
       </p>
-    </div>
+    </SectionCard>
   );
 }
 

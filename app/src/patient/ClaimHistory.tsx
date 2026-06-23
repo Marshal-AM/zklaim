@@ -5,7 +5,7 @@ export function ClaimHistory() {
 
   if (history.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         No settled claims yet. History shows nullifiers only — no medical data.
       </p>
     );
@@ -14,14 +14,11 @@ export function ClaimHistory() {
   return (
     <ul className="space-y-2">
       {history.map((entry) => (
-        <li
-          key={entry.nullifier}
-          className="rounded border border-slate-800 px-3 py-2 text-sm"
-        >
-          <p className="font-mono text-xs text-slate-400 truncate">
+        <li key={entry.nullifier} className="surface-row px-4 py-3 text-sm">
+          <p className="truncate font-mono text-xs text-muted-foreground">
             {entry.nullifier}
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="mt-1 text-xs text-subtle">
             {new Date(entry.submittedAt).toLocaleString()}
           </p>
         </li>

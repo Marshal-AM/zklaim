@@ -8,6 +8,9 @@ import { ClaimInbox } from "./ClaimInbox";
 import { SubmitClaimFlow } from "./SubmitClaimFlow";
 import { ClaimHistory } from "./ClaimHistory";
 import { DeductibleBar } from "../components/DeductibleBar";
+import { PageHeader } from "../components/ui/PageHeader";
+import { PageColumn, PageContent, PageGrid } from "../components/ui/PageGrid";
+import { SectionCard } from "../components/ui/SectionCard";
 import { useWalletStore } from "../store/wallet";
 
 export function PatientPage() {
@@ -71,48 +74,87 @@ export function PatientPage() {
   const selectedClaim = submittable.find((c) => c.id === selectedClaimId);
 
   if (!loaded) {
-    return <p className="text-slate-500">Loading…</p>;
+    return (
+      <PageContent>
+        <div className="animate-shimmer h-8 w-48 rounded-xl" />
+        <div className="animate-shimmer mt-4 h-64 rounded-xl" />
+      </PageContent>
+    );
   }
 
   return (
-    <section className="max-w-lg mx-auto space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Patient Portal</h2>
-        <p className="text-slate-400 text-sm mt-1">
-          Submit claims privately. Your diagnosis never leaves this device.
-        </p>
-      </div>
+    <PageContent>
+      <PageHeader
+        title="Patient Portal"
+        subtitle="Submit claims privately. Your diagnosis never leaves this device."
+      />
 
       {!identity ? (
-        <OnboardingPanel />
+        <PageGrid>
+          <PageColumn>
+            <OnboardingPanel />
+          </PageColumn>
+          <PageColumn>
+            <SectionCard label="How it works" title="Private claims flow">
+              <ol className="space-y-3 text-sm text-muted-foreground">
+                <li className="flex gap-3">
+                  <span className="badge-primary shrink-0">1</span>
+                  Connect Freighter and generate your local encryption keys.
+                </li>
+                <li className="flex gap-3">
+                  <span className="badge-primary shrink-0">2</span>
+                  Share your Stellar address with your doctor.
+                </li>
+                <li className="flex gap-3">
+                  <span className="badge-primary shrink-0">3</span>
+                  Receive encrypted claims in your inbox and submit with ZK proofs.
+                </li>
+              </ol>
+            </SectionCard>
+          </PageColumn>
+        </PageGrid>
       ) : (
-        <>
-          <IdentityCard />
-          <DeductibleBar
-            metCents={identity.accumulator_met_cents}
-            limitCents={identity.deductible_limit_cents}
-          />
-          <ClaimInbox
-            patientAddress={patientAddress}
-            selectedClaimId={selectedClaimId}
-            onSelectClaim={setSelectedClaimId}
-          />
-          {selectedClaim ? (
-            <SubmitClaimFlow
-              claim={selectedClaim}
-              onComplete={() => setSelectedClaimId(null)}
+        <PageGrid>
+          <PageColumn>
+            <IdentityCard />
+            <ClaimInbox
+              patientAddress={patientAddress}
+              selectedClaimId={selectedClaimId}
+              onSelectClaim={setSelectedClaimId}
             />
-          ) : submittable.length > 1 ? (
-            <p className="text-sm text-center text-slate-500 py-2">
-              Select a claim in the inbox above, then submit.
-            </p>
-          ) : null}
-          <div>
-            <h3 className="font-medium mb-2">Claim history</h3>
-            <ClaimHistory />
-          </div>
-        </>
+          </PageColumn>
+
+          <PageColumn sticky>
+            <DeductibleBar
+              metCents={identity.accumulator_met_cents}
+              limitCents={identity.deductible_limit_cents}
+            />
+            {selectedClaim ? (
+              <SubmitClaimFlow
+                claim={selectedClaim}
+                onComplete={() => setSelectedClaimId(null)}
+              />
+            ) : submittable.length > 1 ? (
+              <SectionCard label="Submit" title="Select a claim">
+                <p className="text-sm text-muted-foreground">
+                  Choose a claim from your inbox on the left, then generate proofs
+                  and submit for USDC settlement.
+                </p>
+              </SectionCard>
+            ) : submittable.length === 0 ? (
+              <SectionCard label="Submit" title="No pending claims">
+                <p className="text-sm text-muted-foreground">
+                  When your doctor sends a claim, it will appear in your inbox.
+                  You can submit it here for private settlement.
+                </p>
+              </SectionCard>
+            ) : null}
+            <SectionCard title="Claim history" label="Settled claims">
+              <ClaimHistory />
+            </SectionCard>
+          </PageColumn>
+        </PageGrid>
       )}
-    </section>
+    </PageContent>
   );
 }

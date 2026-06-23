@@ -8,21 +8,28 @@ export function DeductibleBar({ metCents, limitCents }: DeductibleBarProps) {
   const met = metCents >= limitCents;
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4 space-y-2">
-      <div className="flex justify-between text-sm">
-        <span className="text-slate-400">Annual deductible</span>
-        <span className={met ? "text-emerald-400 font-medium" : "text-slate-300"}>
-          {met ? "Met — insurer covers 100%" : `${pct}% toward threshold`}
+    <div className="card-padded space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="section-label">Annual deductible</p>
+        <span
+          className={
+            met
+              ? "badge-success"
+              : "badge-primary"
+          }
+        >
+          {met ? "Met — 100% covered" : `${pct}% toward threshold`}
         </span>
       </div>
-      <div className="h-3 rounded-full bg-slate-800 overflow-hidden">
+      <div className="h-2.5 overflow-hidden rounded-full bg-muted">
         <div
-          className={`h-full transition-all ${met ? "bg-emerald-500" : "bg-sky-500"}`}
+          className={`h-full transition-fluid ${met ? "bg-success" : "bg-primary"}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="text-xs text-slate-500">
-        Progress tracked privately — individual claim amounts are never shown here.
+      <p className="text-xs text-muted-foreground">
+        Progress tracked privately — individual claim amounts are never shown
+        here.
       </p>
     </div>
   );

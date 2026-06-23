@@ -6,10 +6,10 @@ interface SubmitClaimLogPanelProps {
 }
 
 const LEVEL_STYLES: Record<SubmitClaimLogEntry["level"], string> = {
-  info: "text-slate-300",
-  success: "text-emerald-400",
-  warn: "text-amber-400",
-  error: "text-red-400",
+  info: "text-foreground/75",
+  success: "text-success",
+  warn: "text-primary",
+  error: "text-destructive",
 };
 
 function formatTime(ts: number): string {
@@ -31,37 +31,35 @@ export function SubmitClaimLogPanel({ entries }: SubmitClaimLogPanelProps) {
   if (entries.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-slate-700 bg-slate-950/80">
-      <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
-        <h4 className="text-xs font-medium uppercase tracking-wide text-slate-400">
-          Submit activity log
-        </h4>
-        <span className="text-xs text-slate-500">
-          {entries.length} event{entries.length === 1 ? "" : "s"} · also in
-          DevTools console as [ZKlaim Submit]
+    <div className="card-shell overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+        <span className="h-2 w-2 rounded-full bg-red-400/70" />
+        <span className="h-2 w-2 rounded-full bg-amber-400/70" />
+        <span className="h-2 w-2 rounded-full bg-emerald-400/70" />
+        <h4 className="ml-2 section-label">Submit activity log</h4>
+        <span className="ml-auto text-[10px] text-subtle">
+          {entries.length} event{entries.length === 1 ? "" : "s"}
         </span>
       </div>
-      <div className="max-h-64 overflow-y-auto p-3 space-y-2 font-mono text-xs">
+      <div className="max-h-64 space-y-2 overflow-y-auto p-3 font-mono text-[11px] leading-[1.45]">
         {entries.map((entry) => (
-          <div key={entry.id} className="leading-relaxed">
+          <div key={entry.id}>
             <div className="flex gap-2">
-              <span className="shrink-0 text-slate-600">
-                {formatTime(entry.ts)}
-              </span>
+              <span className="shrink-0 text-subtle">{formatTime(entry.ts)}</span>
               <span
-                className={`shrink-0 uppercase w-14 ${LEVEL_STYLES[entry.level]}`}
+                className={`w-14 shrink-0 uppercase ${LEVEL_STYLES[entry.level]}`}
               >
                 {entry.level}
               </span>
-              <span className={`${LEVEL_STYLES[entry.level]} break-words`}>
+              <span className={`break-words ${LEVEL_STYLES[entry.level]}`}>
                 {entry.step}
               </span>
             </div>
-            {entry.detail && (
-              <pre className="mt-1 ml-[5.5rem] whitespace-pre-wrap break-all text-slate-500">
+            {entry.detail ? (
+              <pre className="ml-[5.5rem] mt-1 whitespace-pre-wrap break-all text-subtle">
                 {entry.detail}
               </pre>
-            )}
+            ) : null}
           </div>
         ))}
         <div ref={bottomRef} />

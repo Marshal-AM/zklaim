@@ -24,13 +24,13 @@ export function QrDisplay({ value, label }: QrDisplayProps) {
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <canvas ref={canvasRef} className="rounded-lg bg-white p-2" />
-      {label && <p className="text-sm text-slate-400">{label}</p>}
-      <button
-        type="button"
-        onClick={copyLink}
-        className="text-xs px-3 py-1.5 rounded border border-slate-700 hover:border-slate-500"
-      >
+      <div className="rounded-xl bg-white p-3">
+        <canvas ref={canvasRef} />
+      </div>
+      {label ? (
+        <p className="text-sm text-muted-foreground">{label}</p>
+      ) : null}
+      <button type="button" onClick={copyLink} className="btn-outline-primary text-xs">
         {copied ? "Copied!" : "Copy deep link"}
       </button>
     </div>

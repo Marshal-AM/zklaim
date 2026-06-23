@@ -18,8 +18,8 @@ export function ProofProgress({ currentStage, startedAt }: ProofProgressProps) {
   const elapsed = startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0;
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-slate-400">
+    <div className="card-padded space-y-4">
+      <p className="text-sm text-muted-foreground">
         Your diagnosis stays private · ~7–10 seconds
         {startedAt ? ` · ${elapsed}s` : ""}
       </p>
@@ -30,31 +30,31 @@ export function ProofProgress({ currentStage, startedAt }: ProofProgressProps) {
           return (
             <div
               key={stage.key}
-              className={`flex items-center gap-3 rounded-lg px-4 py-3 border ${
+              className={`surface-row flex items-center gap-3 px-4 py-3 transition-fluid ${
                 active
-                  ? "border-emerald-500/50 bg-emerald-950/30"
+                  ? "border-primary/50 bg-primary/10"
                   : done
-                    ? "border-slate-700 bg-slate-900/50"
-                    : "border-slate-800 bg-slate-900/20"
+                    ? "opacity-100"
+                    : "opacity-60"
               }`}
             >
               <span
-                className={`text-xs font-mono w-8 ${
-                  done ? "text-emerald-400" : "text-slate-600"
+                className={`w-8 font-mono text-xs font-[650] ${
+                  done ? "text-primary" : "text-subtle"
                 }`}
               >
                 {stage.index}/4
               </span>
-              <span className={done ? "text-slate-200" : "text-slate-500"}>
+              <span className={done ? "text-foreground" : "text-muted-foreground"}>
                 {stage.label}
               </span>
             </div>
           );
         })}
       </div>
-      <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full bg-emerald-500 transition-all duration-500"
+          className="h-full bg-primary transition-fluid"
           style={{ width: `${(currentIndex / 4) * 100}%` }}
         />
       </div>

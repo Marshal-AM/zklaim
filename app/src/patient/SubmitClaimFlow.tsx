@@ -6,7 +6,7 @@ import {
   type ProofProgressStage,
 } from "@zklaim/proof-gen";
 import { fieldToHex } from "@zklaim/scripts";
-import { ensureWalletConnected } from "../components/WalletButton";
+import { ensureWalletConnected } from "../lib/walletSession";
 import { ProofProgress } from "../components/ProofProgress";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { SubmitClaimLogPanel } from "../components/SubmitClaimLogPanel";
@@ -378,21 +378,21 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
   if (receipt) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-emerald-800 bg-emerald-950/30 p-6 space-y-3">
-          <h3 className="text-lg font-medium text-emerald-300">
+        <div className="success-card space-y-3 p-6">
+          <h3 className="text-lg font-[650] tracking-tight text-success">
             USDC received. Claim settled.
           </h3>
-          <p className="text-2xl font-semibold">
+          <p className="text-3xl font-[650] tabular-nums tracking-tight">
             +{formatUsdc(receipt.usdcReceived)}
           </p>
-          <p className="text-xs text-slate-400 font-mono break-all">
+          <p className="break-all font-mono text-xs text-muted-foreground">
             Confirmation: {receipt.nullifier}
           </p>
           <a
             href={`https://stellar.expert/explorer/testnet/tx/${receipt.txHash}`}
             target="_blank"
             rel="noreferrer"
-            className="text-sm text-sky-400 hover:underline"
+            className="btn-outline-primary inline-flex text-xs"
           >
             View on explorer
           </a>
@@ -404,16 +404,14 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-slate-700 bg-slate-900/50 px-4 py-3">
-        <p className="text-xs uppercase tracking-wide text-slate-500">
-          Selected claim
-        </p>
-        <p className="font-medium text-slate-200 mt-1">
+      <div className="surface-row px-4 py-3">
+        <p className="section-label">Selected claim</p>
+        <p className="mt-1 font-[650] text-foreground">
           {claimSummary
             ? `${claimSummary.amount_label} · ${claimSummary.icd_code} · ${claimSummary.doctor_license_id}`
             : "Encrypted claim"}
         </p>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="mt-1 text-xs text-muted-foreground">
           {claimSummary
             ? `Visit ${formatVisitDate(claimSummary.visit_date)} · `
             : ""}
@@ -426,7 +424,7 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         <button
           type="button"
           onClick={handleSubmit}
-          className="w-full py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+          className="btn-primary w-full py-3 text-base"
         >
           Submit Claim
         </button>

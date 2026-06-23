@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { getFreighterAddress } from "../lib/freighter";
 import { decodeTokenFromUrl, type EncryptedClaimToken } from "../lib/claimToken";
 import {
   fetchPendingDeliveries,
@@ -18,6 +17,7 @@ import { getSupabase } from "../lib/supabase";
 import { savePatientInbox } from "../lib/persistence";
 import { usePatientStore } from "../store/patientStore";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { SectionCard } from "../components/ui/SectionCard";
 
 interface ClaimInboxProps {
   patientAddress: string | null;
@@ -96,15 +96,11 @@ export function ClaimInbox({
   const syncSupabaseDeliveries = useCallback(async () => {
     if (!identity || !env.isSupabaseEnabled()) return;
 
-    let address = patientAddress;
-    if (!address) {
-      address = (await getFreighterAddress()) ?? null;
-    }
-    if (!address) return;
+    if (!patientAddress) return;
 
     setSyncing(true);
     try {
-      const rows = await fetchPendingDeliveries(address);
+      const rows = await fetchPendingDeliveries(patientAddress);
       for (const row of rows) {
         const token = rowToEncryptedToken(row);
         await importToken(token, row.id);
@@ -178,34 +174,34 @@ export function ClaimInbox({
   );
 
   return (
-    <div className="space-y-4">
-      {error && <ErrorBanner message={error} />}
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="font-medium">Claim inbox</h3>
-        <div className="flex items-center gap-2">
-          {env.isSupabaseEnabled() ? (
-            <button
-              type="button"
-              onClick={() => void syncSupabaseDeliveries()}
-              disabled={syncing || !identity}
-              className="text-xs px-2 py-1 rounded border border-slate-700 hover:border-slate-500 disabled:opacity-50"
-            >
-              {syncing ? "Syncing…" : "Refresh"}
-            </button>
-          ) : null}
-          {inboxClaims.length > 1 ? (
-            <span className="text-xs text-slate-500">Tap a claim to select it</span>
-          ) : null}
-        </div>
+    <SectionCard
+      label="Inbox"
+      title="Claim inbox"
+    >
+      {error ? <ErrorBanner message={error} /> : null}
+      <div className="flex items-center justify-end gap-2">
+        {env.isSupabaseEnabled() ? (
+          <button
+            type="button"
+            onClick={() => void syncSupabaseDeliveries()}
+            disabled={syncing || !identity}
+            className="btn-secondary text-xs"
+          >
+            {syncing ? "Syncing…" : "Refresh"}
+          </button>
+        ) : null}
+        {inboxClaims.length > 1 ? (
+          <span className="text-xs text-subtle">Tap a claim to select it</span>
+        ) : null}
       </div>
       {env.isSupabaseEnabled() && identity && !patientAddress ? (
-        <p className="text-sm text-amber-400">
+        <div className="warning-card px-4 py-3 text-sm">
           Connect Freighter (same wallet you gave your doctor) so we can load
           claims from the directory.
-        </p>
+        </div>
       ) : null}
       {inboxClaims.length === 0 ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           {env.isSupabaseEnabled()
             ? "No pending claims. Claims appear automatically when your doctor sends them, or via QR/deep link."
             : "No pending claims. Ask your doctor to send a claim token via QR or deep link."}
@@ -224,39 +220,27 @@ export function ClaimInbox({
                 <button
                   type="button"
                   onClick={() => onSelectClaim(claim.id)}
-                  className={`w-full text-left rounded-lg border px-4 py-3 transition-colors ${
+                  className={`surface-row w-full px-4 py-3 text-left transition-fluid hover:scale-[1.01] ${
                     selected
                       ? failed
-                        ? "border-amber-400 bg-amber-950/40 ring-2 ring-amber-500/50"
-                        : "border-emerald-400 bg-emerald-950/40 ring-2 ring-emerald-500/50"
-                      : failed
-                        ? "border-amber-900/40 bg-amber-950/20 hover:border-amber-700/60"
-                        : "border-emerald-900/40 bg-emerald-950/20 hover:border-emerald-700/60"
+                        ? "border-[color-mix(in_oklch,oklch(0.72_0.12_55)_50%,transparent)] bg-[color-mix(in_oklch,oklch(0.72_0.12_55)_10%,transparent)] ring-1 ring-[color-mix(in_oklch,oklch(0.72_0.12_55)_35%,transparent)]"
+                        : "border-primary/50 bg-primary/10 ring-1 ring-primary/25"
+                      : ""
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p
-                      className={`font-medium ${
-                        failed ? "text-amber-300" : "text-emerald-300"
-                      }`}
-                    >
+                    <p className="font-[650] text-foreground">
                       {summary
                         ? `${summary.amount_label} · ${summary.icd_code} · ${summary.doctor_license_id}`
                         : "Encrypted claim"}
                     </p>
-                    {selected && (
-                      <span
-                        className={`shrink-0 text-[10px] uppercase tracking-wide px-2 py-0.5 rounded ${
-                          failed
-                            ? "bg-amber-900/60 text-amber-200"
-                            : "bg-emerald-900/60 text-emerald-200"
-                        }`}
-                      >
+                    {selected ? (
+                      <span className={failed ? "badge-warning" : "badge-primary"}>
                         Selected
                       </span>
-                    )}
+                    ) : null}
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {summary
                       ? `Visit ${formatVisitDate(summary.visit_date)}`
                       : null}
@@ -264,7 +248,7 @@ export function ClaimInbox({
                     Received {new Date(claim.receivedAt).toLocaleString()}
                     {failed ? " · previous submit failed" : ""}
                   </p>
-                  <p className="text-[10px] text-slate-600 font-mono mt-1">
+                  <p className="mt-1 font-mono text-[10px] text-subtle">
                     {shortClaimId(claim.id)}
                   </p>
                 </button>
@@ -273,6 +257,6 @@ export function ClaimInbox({
           })}
         </ul>
       )}
-    </div>
+    </SectionCard>
   );
 }
