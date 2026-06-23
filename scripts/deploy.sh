@@ -16,27 +16,19 @@ if [[ -f "$ROOT/.env" ]]; then
   source "$ROOT/.env"
 fi
 
-deploy_mock_usdc() {
-  echo "=== Deploying mock USDC SAC (issuer=$ADMIN_ADDR) ==="
-  stellar tx new payment \
-    --source-account "$IDENTITY" \
-    --destination "$ADMIN_ADDR" \
-    --asset "USDC:$ADMIN_ADDR" \
-    --amount 100000000000 \
-    --network "$NETWORK" \
-    | stellar tx sign --source-account "$IDENTITY" --network "$NETWORK" \
-    | stellar tx send --network "$NETWORK"
-  stellar contract asset deploy \
-    --asset "USDC:$ADMIN_ADDR" \
-    --source-account "$IDENTITY" \
-    --network "$NETWORK"
+deploy_circle_usdc_sac() {
+  source "$ROOT/scripts/usdc_circle.sh"
+  echo "=== Resolving Circle testnet USDC SAC (issuer=$ZKLAIM_USDC_ISSUER) ==="
+  stellar contract id asset --asset "$ZKLAIM_USDC_ASSET" --network "$NETWORK"
 }
 
 USDC_TOKEN="${USDC_TOKEN_CONTRACT_ID:-}"
 if [[ -z "$USDC_TOKEN" ]]; then
-  USDC_TOKEN="$(deploy_mock_usdc | tail -1)"
+  USDC_TOKEN="$(deploy_circle_usdc_sac | tail -1)"
   echo "USDC_TOKEN_CONTRACT_ID=$USDC_TOKEN"
 fi
+source "$ROOT/scripts/usdc_circle.sh"
+CIRCLE_USDC_ISSUER="$ZKLAIM_USDC_ISSUER"
 
 cd "$ROOT/contracts"
 cargo build --workspace --target wasm32v1-none --release
@@ -130,6 +122,7 @@ touch "$ENV_OUT"
   echo "POLICY_REGISTRY_CONTRACT_ID=$POLICY_ID"
   echo "DEDUCTIBLE_TRACKER_CONTRACT_ID=$TRACKER_ID"
   echo "CLAIM_ESCROW_CONTRACT_ID=$ESCROW_ID"
+  echo "USDC_ISSUER=$CIRCLE_USDC_ISSUER"
   echo "USDC_TOKEN_CONTRACT_ID=$USDC_TOKEN"
   echo "INSURER_FUND_ADDRESS=$ADMIN_ADDR"
 } > "$ENV_OUT"

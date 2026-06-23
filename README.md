@@ -82,7 +82,7 @@ bash scripts/init_vks.sh testnet zklaim-deploy   # after re-proving circuits
 bash scripts/smoke_claim.sh testnet zklaim-deploy
 ```
 
-Contract IDs are written to `.env`. If `USDC_TOKEN_CONTRACT_ID` is unset, `deploy.sh` issues a mock `USDC` SAC from the deployer account.
+Contract IDs are written to `.env`. Settlement uses **Circle testnet USDC only** (issuer `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`, Soroban SAC `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`). After deploy, wire escrow to Circle USDC with `bash scripts/redeploy_escrow_circle_usdc.sh testnet zklaim-deploy`. Fund the insurer escrow with `bash scripts/fund_usdc.sh` (swap XLM → USDC on deployer). Optional third arg sends USDC to the patient demo wallet: `bash scripts/fund_usdc.sh testnet zklaim-deploy 500000000`.
 
 **Prover alignment:** use **bb 0.87.0** with `--oracle_hash keccak` (matches the on-chain Fiat–Shamir transcript). Noir stays at **1.0.0-beta.3**. After changing circuits, run `bash scripts/test_circuits.sh` then `bash scripts/init_vks.sh` to refresh on-chain VKs.
 

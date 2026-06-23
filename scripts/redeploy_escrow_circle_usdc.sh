@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Redeploy deductible_tracker (genesis fix) + claim_escrow (rewire tracker).
-# Reuses verifier, ASP, policy from .env; USDC is always Circle testnet SAC.
+# Redeploy claim_escrow wired to Circle testnet USDC SAC (not deployer-issued mock USDC).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -13,6 +12,9 @@ NETWORK="${1:-testnet}"
 IDENTITY="${2:-zklaim-deploy}"
 ADMIN_ADDR="$(stellar keys address "$IDENTITY")"
 
+CIRCLE_USDC_ISSUER="$ZKLAIM_USDC_ISSUER"
+CIRCLE_USDC_ASSET="$ZKLAIM_USDC_ASSET"
+
 if [[ ! -f "$ROOT/.env" ]]; then
   echo "Missing .env — run bash scripts/deploy.sh first" >&2
   exit 1
@@ -24,24 +26,19 @@ VERIFIER_ID="${VERIFIER_CONTRACT_ID:?}"
 ASP_MEMBER_ID="${ASP_MEMBER_CONTRACT_ID:?}"
 ASP_FRAUD_ID="${ASP_FRAUD_CONTRACT_ID:?}"
 POLICY_ID="${POLICY_REGISTRY_CONTRACT_ID:?}"
-USDC_TOKEN=$(stellar contract id asset --asset "$ZKLAIM_USDC_ASSET" --network "$NETWORK")
-echo "Circle USDC SAC: $USDC_TOKEN"
+TRACKER_ID="${DEDUCTIBLE_TRACKER_CONTRACT_ID:?}"
 INSURER="${INSURER_FUND_ADDRESS:-$ADMIN_ADDR}"
 
-echo "=== Building contracts (wasm32v1-none) ==="
+echo "=== Resolving Circle USDC SAC ==="
+USDC_TOKEN=$(stellar contract id asset --asset "$CIRCLE_USDC_ASSET" --network "$NETWORK")
+echo "  Issuer: $CIRCLE_USDC_ISSUER"
+echo "  SAC:    $USDC_TOKEN"
+
 cd "$ROOT/contracts"
 cargo build --workspace --target wasm32v1-none --release
 WASM="target/wasm32v1-none/release"
 
-echo "=== Deploy deductible_tracker (genesis fix) ==="
-TRACKER_ID=$(stellar contract deploy \
-  --wasm "$ROOT/contracts/$WASM/deductible_tracker.wasm" \
-  --source-account "$IDENTITY" --network "$NETWORK")
-stellar contract invoke --id "$TRACKER_ID" --source-account "$IDENTITY" --network "$NETWORK" \
-  -- init --verifier "$VERIFIER_ID"
-echo "Deductible Tracker: $TRACKER_ID"
-
-echo "=== Deploy claim_escrow (new tracker wire) ==="
+echo "=== Deploy claim_escrow (Circle USDC) ==="
 ESCROW_ID=$(stellar contract deploy \
   --wasm "$ROOT/contracts/$WASM/claim_escrow.wasm" \
   --source-account "$IDENTITY" --network "$NETWORK")
@@ -58,7 +55,6 @@ stellar contract invoke --id "$ESCROW_ID" --source-account "$IDENTITY" --network
   --coinsurance_bps 2000
 echo "Claim Escrow: $ESCROW_ID"
 
-# Update .env in place (preserve other keys)
 update_env() {
   local key="$1" val="$2"
   if grep -q "^${key}=" "$ROOT/.env" 2>/dev/null; then
@@ -68,17 +64,18 @@ update_env() {
   fi
 }
 
-update_env "DEDUCTIBLE_TRACKER_CONTRACT_ID" "$TRACKER_ID"
-update_env "CLAIM_ESCROW_CONTRACT_ID" "$ESCROW_ID"
-update_env "USDC_ISSUER" "$ZKLAIM_USDC_ISSUER"
+update_env "USDC_ISSUER" "$CIRCLE_USDC_ISSUER"
 update_env "USDC_TOKEN_CONTRACT_ID" "$USDC_TOKEN"
+update_env "CLAIM_ESCROW_CONTRACT_ID" "$ESCROW_ID"
 
-# Mirror to .env.example for committed reference
 if [[ -f "$ROOT/.env.example" ]]; then
-  sed -i "s|^DEDUCTIBLE_TRACKER_CONTRACT_ID=.*|DEDUCTIBLE_TRACKER_CONTRACT_ID=${TRACKER_ID}|" "$ROOT/.env.example"
+  sed -i "s|^USDC_ISSUER=.*|USDC_ISSUER=${CIRCLE_USDC_ISSUER}|" "$ROOT/.env.example" 2>/dev/null || true
+  sed -i "s|^USDC_TOKEN_CONTRACT_ID=.*|USDC_TOKEN_CONTRACT_ID=${USDC_TOKEN}|" "$ROOT/.env.example"
   sed -i "s|^CLAIM_ESCROW_CONTRACT_ID=.*|CLAIM_ESCROW_CONTRACT_ID=${ESCROW_ID}|" "$ROOT/.env.example"
+  grep -q "^USDC_ISSUER=" "$ROOT/.env.example" || \
+    sed -i "/^USDC_TOKEN_CONTRACT_ID=/i USDC_ISSUER=${CIRCLE_USDC_ISSUER}" "$ROOT/.env.example"
 fi
 
-echo "=== Redeploy complete ==="
-echo "  DEDUCTIBLE_TRACKER_CONTRACT_ID=$TRACKER_ID"
+echo "=== Circle USDC escrow redeploy complete ==="
+echo "  USDC_TOKEN_CONTRACT_ID=$USDC_TOKEN"
 echo "  CLAIM_ESCROW_CONTRACT_ID=$ESCROW_ID"
