@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { ensureWalletConnected } from "../components/WalletButton";
 import { useWalletStore } from "../store/wallet";
 import { loadProviderHistory } from "../lib/persistence";
 import { useProviderStore } from "../store/providerStore";
@@ -9,6 +8,9 @@ import {
   ProviderRegistration,
   useProviderEnrollment,
 } from "../components/ProviderRegistration";
+import { PageHeader } from "../components/ui/PageHeader";
+import { PageColumn, PageContent, PageGrid } from "../components/ui/PageGrid";
+import { SectionCard } from "../components/ui/SectionCard";
 
 export function ProviderPage() {
   const address = useWalletStore((s) => s.address);
@@ -21,48 +23,56 @@ export function ProviderPage() {
     });
   }, []);
 
-  useEffect(() => {
+  function renderPrimaryColumn() {
     if (!connected) {
-      void ensureWalletConnected().catch(() => {
-        // user may decline
-      });
+      return (
+        <SectionCard label="Wallet" title="Connect to continue">
+          <p className="text-sm text-muted-foreground">
+            Connect Freighter to register as a provider or create encrypted claims
+            for patients.
+          </p>
+        </SectionCard>
+      );
     }
-  }, [connected]);
+
+    if (loading) {
+      return (
+        <div className="card-padded">
+          <div className="animate-shimmer h-48 rounded-xl" />
+          <p className="mt-3 text-center text-sm text-muted-foreground">
+            Checking provider enrollment…
+          </p>
+        </div>
+      );
+    }
+
+    if (!enrolled) {
+      return <ProviderRegistration onRegistered={refresh} />;
+    }
+
+    return (
+      <SectionCard label="New claim" title="Create encrypted claim">
+        <NewClaimForm />
+      </SectionCard>
+    );
+  }
 
   return (
-    <section className="max-w-lg mx-auto space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Provider Portal</h2>
-        <p className="text-slate-400 text-sm mt-1">
-          Licensed physicians create encrypted claim tokens for patients.
-        </p>
-      </div>
+    <PageContent>
+      <PageHeader
+        title="Provider Portal"
+        subtitle="Licensed physicians create encrypted claim tokens for patients."
+      />
 
-      {connected && !loading && !enrolled && (
-        <ProviderRegistration onRegistered={refresh} />
-      )}
+      <PageGrid>
+        <PageColumn>{renderPrimaryColumn()}</PageColumn>
 
-      {connected && enrolled && (
-        <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-6">
-          <h3 className="font-medium mb-4">New claim</h3>
-          <NewClaimForm />
-        </div>
-      )}
-
-      {connected && loading && (
-        <p className="text-sm text-slate-500">Checking provider enrollment…</p>
-      )}
-
-      {!connected && (
-        <p className="text-sm text-slate-500">
-          Connect Freighter to register as a provider or create a claim.
-        </p>
-      )}
-
-      <div>
-        <h3 className="font-medium mb-2">Claim history</h3>
-        <ProviderHistory />
-      </div>
-    </section>
+        <PageColumn sticky>
+          <SectionCard title="Claim history" label="Sent claims">
+            <ProviderHistory />
+          </SectionCard>
+        </PageColumn>
+      </PageGrid>
+    </PageContent>
   );
 }

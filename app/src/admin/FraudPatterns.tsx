@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ensureWalletConnected } from "../components/WalletButton";
+import { ensureWalletConnected } from "../lib/walletSession";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { FormField } from "../components/ui/FormField";
 import { insertFraudPattern } from "../lib/contracts";
 
 export function FraudPatterns() {
@@ -29,22 +30,20 @@ export function FraudPatterns() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      {error && <ErrorBanner message={error} />}
-      {txHash && (
-        <p className="text-xs text-emerald-400 font-mono truncate">{txHash}</p>
-      )}
-      <input
-        required
-        placeholder="billing_pattern_hash (hex)"
-        value={patternHash}
-        onChange={(e) => setPatternHash(e.target.value)}
-        className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-mono"
-      />
-      <button
-        type="submit"
-        disabled={busy}
-        className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-sm"
-      >
+      {error ? <ErrorBanner message={error} /> : null}
+      {txHash ? (
+        <p className="truncate font-mono text-xs text-success">{txHash}</p>
+      ) : null}
+      <FormField label="Billing pattern hash (hex)">
+        <input
+          required
+          value={patternHash}
+          onChange={(e) => setPatternHash(e.target.value)}
+          className="input-field font-mono"
+          placeholder="billing_pattern_hash"
+        />
+      </FormField>
+      <button type="submit" disabled={busy} className="btn-secondary">
         insert_pattern
       </button>
     </form>

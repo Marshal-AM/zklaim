@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { ensureWalletConnected } from "../components/WalletButton";
-import { ErrorBanner } from "../components/ErrorBanner";
+import { ensureWalletConnected } from "../lib/walletSession";
+import { ErrorBanner } from "./ErrorBanner";
+import { FormField } from "./ui/FormField";
+import { SectionCard } from "./ui/SectionCard";
 import { env } from "../config/env";
 import {
   DEMO_PROVIDER_LICENSES,
@@ -46,34 +48,31 @@ export function ProviderRegistration({ onRegistered }: ProviderRegistrationProps
 
   if (!env.isSupabaseEnabled()) {
     return (
-      <div className="rounded-lg border border-amber-900/50 bg-amber-950/30 p-4 text-sm text-amber-200 space-y-2">
-        <p className="font-medium">Provider registration requires Supabase</p>
-        <p className="text-amber-200/80 text-xs">
+      <div className="warning-card space-y-2 p-4 text-sm">
+        <p className="font-[650]">Provider registration requires Supabase</p>
+        <p className="text-xs text-muted-foreground">
           Add VITE_SUPABASE_* to .env and run{" "}
-          <code className="text-amber-100">002_provider_profiles.sql</code> in
-          the SQL Editor. Or connect the deployer wallet (
-          <code className="text-amber-100">INSURER_FUND_ADDRESS</code>).
+          <code className="font-mono text-foreground">002_provider_profiles.sql</code>{" "}
+          in the SQL Editor. Or connect the deployer wallet (
+          <code className="font-mono text-foreground">INSURER_FUND_ADDRESS</code>
+          ).
         </p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-sky-900/50 bg-sky-950/20 p-4 space-y-4">
-      <div>
-        <h4 className="font-medium text-sky-200">Register as testnet provider</h4>
-        <p className="text-xs text-slate-400 mt-1">
-          Link your Freighter wallet to a demo ASP credential (MD-001 matches the
-          hackathon pneumonia demo). Sign once with Freighter — no JSON editing.
-        </p>
-      </div>
-      {error && <ErrorBanner message={error} />}
-      <label className="block text-sm space-y-1">
-        <span className="text-slate-400">Demo license (on-chain ASP)</span>
+    <SectionCard label="Registration" title="Register as testnet provider">
+      <p className="text-sm text-muted-foreground">
+        Link your Freighter wallet to a demo ASP credential (MD-001 matches the
+        hackathon pneumonia demo). Sign once with Freighter — no JSON editing.
+      </p>
+      {error ? <ErrorBanner message={error} /> : null}
+      <FormField label="Demo license (on-chain ASP)">
         <select
           value={licenseId}
           onChange={(e) => setLicenseId(e.target.value as DemoLicenseId)}
-          className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+          className="input-field"
         >
           {DEMO_PROVIDER_LICENSES.map((d) => (
             <option key={d.license_id} value={d.license_id}>
@@ -81,16 +80,16 @@ export function ProviderRegistration({ onRegistered }: ProviderRegistrationProps
             </option>
           ))}
         </select>
-      </label>
+      </FormField>
       <button
         type="button"
         disabled={busy}
         onClick={() => void handleRegister()}
-        className="w-full py-2 rounded bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-medium text-sm"
+        className="btn-primary w-full"
       >
         {busy ? "Signing…" : "Register provider wallet"}
       </button>
-    </div>
+    </SectionCard>
   );
 }
 

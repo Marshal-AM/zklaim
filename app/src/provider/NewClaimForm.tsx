@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { computeClaimHash, fieldFromHex } from "@zklaim/scripts";
-import { ensureWalletConnected } from "../components/WalletButton";
+import { ensureWalletConnected } from "../lib/walletSession";
 import { useProviderEnrollment } from "../components/ProviderRegistration";
 import { QrDisplay } from "../components/QrDisplay";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { FormField } from "../components/ui/FormField";
 import {
   encryptClaimToken,
   encodeTokenForUrl,
@@ -175,17 +176,17 @@ export function NewClaimForm() {
   if (delivery) {
     return (
       <div className="space-y-4">
-        <h3 className="font-medium text-lg">Claim sent to patient</h3>
+        <h3 className="text-lg font-[650] tracking-tight">Claim sent to patient</h3>
         {delivery.supabaseDelivered ? (
-          <p className="text-sm text-emerald-400">
+          <div className="success-card px-4 py-3 text-sm text-success">
             Claim delivered to the patient&apos;s inbox automatically.
-          </p>
+          </div>
         ) : null}
         <QrDisplay
           value={delivery.deepLink}
           label="Patient can also open this link"
         />
-        <p className="text-xs text-slate-500 font-mono break-all">
+        <p className="break-all font-mono text-xs text-subtle">
           IPFS CID commitment: {delivery.cid}
         </p>
       </div>
@@ -194,63 +195,63 @@ export function NewClaimForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <ErrorBanner message={error} />}
-      <p className="text-xs text-slate-500">
+      {error ? <ErrorBanner message={error} /> : null}
+      <p className="text-xs text-muted-foreground">
         Credential: {physician?.license_id} ({physician?.specialty_code})
       </p>
-      <label className="block text-sm space-y-1">
-        <span className="text-slate-400">Patient Stellar address</span>
+      <FormField
+        label="Patient Stellar address"
+        hint={
+          supabaseEnabled
+            ? "Encryption key is looked up from the ZKlaim directory."
+            : undefined
+        }
+      >
         <input
           required
           value={patientAddress}
           onChange={(e) => setPatientAddress(e.target.value)}
-          className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+          className="input-field font-mono"
           placeholder="G…"
         />
-        {supabaseEnabled ? (
-          <span className="text-xs text-slate-500">
-            Encryption key is looked up from the ZKlaim directory.
-          </span>
-        ) : null}
-      </label>
+      </FormField>
       {!supabaseEnabled ? (
-        <label className="block text-sm space-y-1">
-          <span className="text-slate-400">Patient encryption key</span>
+        <FormField label="Patient encryption key">
           <input
             required
             value={patientBoxKey}
             onChange={(e) => setPatientBoxKey(e.target.value)}
-            className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-mono text-xs"
+            className="input-field font-mono text-xs"
             placeholder="From patient portal"
           />
-        </label>
+        </FormField>
       ) : null}
-      <label className="block text-sm space-y-1">
-        <span className="text-slate-400">ICD-10 code</span>
+      <FormField label="ICD-10 code">
         <input
           list="icd-list"
           required
           value={icdCode}
           onChange={(e) => setIcdCode(e.target.value)}
-          className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+          className="input-field"
         />
         <datalist id="icd-list">
           {icdCodes.map((c) => (
             <option key={c} value={c} />
           ))}
         </datalist>
-      </label>
-      <label className="block text-sm space-y-1">
-        <span className="text-slate-400">Visit date (YYYYMMDD)</span>
+      </FormField>
+      <FormField label="Visit date (YYYYMMDD)">
         <input
           required
           value={visitDate}
           onChange={(e) => setVisitDate(e.target.value)}
-          className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+          className="input-field font-mono"
         />
-      </label>
-      <label className="block text-sm space-y-1">
-        <span className="text-slate-400">Billed amount (USD)</span>
+      </FormField>
+      <FormField
+        label="Billed amount (USD)"
+        hint={`Demo policy range: ${formatDemoPolicyRange()}`}
+      >
         <input
           required
           type="number"
@@ -259,16 +260,13 @@ export function NewClaimForm() {
           step="0.01"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+          className="input-field"
         />
-        <span className="text-xs text-slate-500">
-          Demo policy range: {formatDemoPolicyRange()}
-        </span>
-      </label>
+      </FormField>
       <button
         type="submit"
         disabled={busy || !enrolled}
-        className="w-full py-2 rounded bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-medium"
+        className="btn-primary w-full"
       >
         {busy ? "Signing…" : "Sign & Send to Patient"}
       </button>

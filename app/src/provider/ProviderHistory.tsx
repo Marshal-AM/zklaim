@@ -5,7 +5,7 @@ export function ProviderHistory() {
 
   if (history.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         No claims submitted yet. History shows claim hash and date only.
       </p>
     );
@@ -16,12 +16,12 @@ export function ProviderHistory() {
       {history.map((entry, i) => (
         <li
           key={`${entry.claim_hash}-${i}`}
-          className="rounded border border-slate-800 px-3 py-2 text-sm"
+          className="surface-row px-4 py-3 text-sm"
         >
-          <p className="font-mono text-xs text-slate-400 truncate">
+          <p className="truncate font-mono text-xs text-muted-foreground">
             {entry.claim_hash}
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="mt-1 text-xs text-subtle">
             {new Date(entry.date).toLocaleString()}
           </p>
         </li>

@@ -15,20 +15,25 @@ export function EscrowBalance() {
   }, []);
 
   return (
-    <div className="space-y-2">
-      <p className="text-sm text-slate-400">
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
         Insurer escrow ({env.insurerFundAddress().slice(0, 8)}…)
       </p>
-      {error && <p className="text-sm text-red-400">{error}</p>}
-      {balance !== null && (
-        <p className="text-2xl font-semibold text-emerald-400">
-          {formatUsdc(balance)} USDC
+      {error ? (
+        <p className="text-sm text-destructive">{error}</p>
+      ) : null}
+      {balance !== null ? (
+        <p className="text-3xl font-[650] tabular-nums tracking-tight text-primary">
+          {formatUsdc(balance)}{" "}
+          <span className="text-sm font-medium text-muted-foreground">USDC</span>
         </p>
-      )}
-      <p className="text-xs text-slate-500">
+      ) : null}
+      <p className="text-xs text-subtle">
         Top up via{" "}
-        <code className="text-slate-400">bash scripts/fund_usdc.sh</code> on
-        testnet.
+        <code className="font-mono text-muted-foreground">
+          bash scripts/fund_usdc.sh
+        </code>{" "}
+        on testnet.
       </p>
     </div>
   );

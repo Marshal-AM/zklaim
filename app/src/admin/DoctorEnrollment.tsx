@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ensureWalletConnected } from "../components/WalletButton";
+import { ensureWalletConnected } from "../lib/walletSession";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { FormField } from "../components/ui/FormField";
 import { enrollDoctor } from "../lib/contracts";
 
 export function DoctorEnrollment() {
@@ -33,46 +34,48 @@ export function DoctorEnrollment() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      {error && <ErrorBanner message={error} />}
-      {txHash && (
-        <p className="text-xs text-emerald-400">
+      {error ? <ErrorBanner message={error} /> : null}
+      {txHash ? (
+        <div className="success-card px-4 py-3 text-xs">
           Tx:{" "}
           <a
             href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
             target="_blank"
             rel="noreferrer"
-            className="underline"
+            className="font-mono text-success underline"
           >
             {txHash.slice(0, 16)}…
           </a>
-        </p>
-      )}
-      <input
-        required
-        placeholder="license_hash (hex)"
-        value={licenseHash}
-        onChange={(e) => setLicenseHash(e.target.value)}
-        className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-mono"
-      />
-      <input
-        required
-        placeholder="specialty_code"
-        value={specialty}
-        onChange={(e) => setSpecialty(e.target.value)}
-        className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
-      />
-      <input
-        required
-        placeholder="jurisdiction_hash (hex)"
-        value={jurisdiction}
-        onChange={(e) => setJurisdiction(e.target.value)}
-        className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-mono"
-      />
-      <button
-        type="submit"
-        disabled={busy}
-        className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-sm"
-      >
+        </div>
+      ) : null}
+      <FormField label="License hash (hex)">
+        <input
+          required
+          value={licenseHash}
+          onChange={(e) => setLicenseHash(e.target.value)}
+          className="input-field font-mono"
+          placeholder="license_hash"
+        />
+      </FormField>
+      <FormField label="Specialty code">
+        <input
+          required
+          value={specialty}
+          onChange={(e) => setSpecialty(e.target.value)}
+          className="input-field"
+          placeholder="PULM"
+        />
+      </FormField>
+      <FormField label="Jurisdiction hash (hex)">
+        <input
+          required
+          value={jurisdiction}
+          onChange={(e) => setJurisdiction(e.target.value)}
+          className="input-field font-mono"
+          placeholder="jurisdiction_hash"
+        />
+      </FormField>
+      <button type="submit" disabled={busy} className="btn-secondary">
         enroll_doctor
       </button>
     </form>
