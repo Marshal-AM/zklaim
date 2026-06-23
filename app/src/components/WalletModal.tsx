@@ -18,7 +18,7 @@ interface WalletModalProps {
 }
 
 export function WalletModal({ open, onOpenChange }: WalletModalProps) {
-  const { address, connected, usdcBalance, setWallet, refreshBalance } =
+  const { address, connected, usdcBalance, setWallet, disconnect, refreshBalance } =
     useWalletStore();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +85,21 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
     }
   }
 
+  async function handleConnectOnly() {
+    setError(null);
+    setBusy(true);
+    try {
+      const publicKey = await connectFreighter();
+      setWallet(publicKey);
+      setStep(0, "done", `${publicKey.slice(0, 8)}…`);
+      await fetchBalances();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Connect failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function copyAddress() {
     if (!address) return;
     void navigator.clipboard.writeText(address);
@@ -104,143 +119,185 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div
+      className="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="wallet-modal-title"
+    >
       <button
         type="button"
         aria-label="Close wallet modal"
-        className="absolute inset-0 bg-black/60"
+        className="absolute inset-0"
         onClick={() => onOpenChange(false)}
       />
-      <div className="relative w-full max-w-md rounded-lg border border-slate-800 bg-slate-900 p-6 shadow-xl space-y-5">
-        <div>
-          <h2 className="text-lg font-semibold">Stellar Wallet</h2>
-          <p className="text-sm text-slate-400 mt-1">
-            Connect Freighter on testnet, fund with Friendbot, and enable the
-            Circle USDC trustline.
-          </p>
-        </div>
-
-        {connected && address ? (
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-slate-400">Public key</p>
-            <div className="flex items-start gap-2">
-              <code className="flex-1 font-mono text-xs bg-slate-950 border border-slate-800 p-3 rounded break-all">
-                {address}
-              </code>
-              <button
-                type="button"
-                onClick={copyAddress}
-                className="shrink-0 text-xs px-2 py-2 rounded border border-slate-700 hover:border-slate-500"
-              >
-                {copied ? "Copied" : "Copy"}
-              </button>
-            </div>
+      <div className="modal-panel modal-panel--wide">
+        <header className="modal-panel__header flex items-start justify-between gap-3">
+          <div>
+            <p className="section-label mb-2">Stellar wallet</p>
+            <h2
+              id="wallet-modal-title"
+              className="text-lg font-[650] tracking-tight"
+            >
+              Freighter on testnet
+            </h2>
+            <p className="page-subtitle mt-1 max-w-prose">
+              Connect Freighter, fund with Friendbot, and enable the Circle USDC
+              trustline.
+            </p>
           </div>
-        ) : null}
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="btn-secondary shrink-0 px-3 py-2 text-xs"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </header>
 
-        <div className="text-center space-y-1">
-          <p className="text-xs text-slate-400">Stellar testnet USDC balance</p>
-          <p className="text-3xl font-bold">
-            {displayBalance}{" "}
-            <span className="text-sm font-medium text-slate-400">USDC</span>
-          </p>
-        </div>
+        <div className="modal-panel__body">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Left: account & balance */}
+            <div className="flex flex-col gap-4">
+              <div className="card-shell flex flex-1 flex-col justify-center p-4 text-center">
+                <p className="section-label">Testnet USDC balance</p>
+                <p className="mt-2 text-3xl font-[650] tabular-nums tracking-tight sm:text-4xl">
+                  {displayBalance}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">USDC</p>
+              </div>
 
-        <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/50 p-4">
-          <h3 className="text-sm font-medium">Setup progress</h3>
-          <ol className="space-y-2">
-            {steps.map((step, index) => (
-              <li key={step.label} className="flex items-start gap-2 text-sm">
-                <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-xs">
-                  {step.status === "done"
-                    ? "✓"
-                    : step.status === "error"
-                      ? "!"
-                      : step.status === "active"
-                        ? "…"
-                        : index + 1}
-                </span>
-                <div>
-                  <div className="font-medium">{step.label}</div>
-                  {step.detail ? (
-                    <div
-                      className={
-                        step.status === "error"
-                          ? "text-xs text-red-400"
-                          : "text-xs text-slate-400"
-                      }
+              {connected && address ? (
+                <div className="space-y-2">
+                  <p className="section-label">Public key</p>
+                  <code className="surface-row block max-h-24 overflow-y-auto break-all p-3 font-mono text-[11px] leading-relaxed">
+                    {address}
+                  </code>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={copyAddress}
+                      className="btn-secondary text-xs"
                     >
-                      {step.detail}
-                    </div>
+                      {copied ? "Copied" : "Copy address"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        disconnect();
+                        resetSteps();
+                        setError(null);
+                      }}
+                      className="btn-outline-primary text-xs"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="info-card p-4 text-sm text-muted-foreground">
+                  Connect Freighter to view your Stellar address and fund your
+                  testnet wallet.
+                </div>
+              )}
+            </div>
+
+            {/* Right: setup & funding */}
+            <div className="flex flex-col gap-4">
+              <div className="card-shell space-y-3 p-4">
+                <h3 className="text-sm font-[650]">Setup progress</h3>
+                <ol className="space-y-2">
+                  {steps.map((step, index) => (
+                    <li
+                      key={step.label}
+                      className="flex items-start gap-2 text-sm"
+                    >
+                      <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-[650]">
+                        {step.status === "done"
+                          ? "✓"
+                          : step.status === "error"
+                            ? "!"
+                            : step.status === "active"
+                              ? "…"
+                              : index + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="font-[650]">{step.label}</div>
+                        {step.detail ? (
+                          <div
+                            className={
+                              step.status === "error"
+                                ? "text-xs text-destructive"
+                                : "text-xs text-muted-foreground"
+                            }
+                          >
+                            {step.detail}
+                          </div>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                <div className="space-y-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void handleConnectAndSetup()}
+                    className="btn-primary w-full"
+                  >
+                    {busy
+                      ? "Connecting…"
+                      : connected
+                        ? "Re-run wallet setup"
+                        : "Connect Freighter"}
+                  </button>
+                  {!connected && !busy ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleConnectOnly()}
+                      className="btn-outline-primary w-full"
+                    >
+                      Connect only (skip Friendbot / trustline)
+                    </button>
                   ) : null}
                 </div>
-              </li>
-            ))}
-          </ol>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void handleConnectAndSetup()}
-          className="w-full px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-medium"
-        >
-          {busy
-            ? "Connecting…"
-            : connected
-              ? "Re-run wallet setup"
-              : "Connect Freighter"}
-        </button>
-        {!connected && !busy ? (
-          <button
-            type="button"
-            onClick={() => {
-              setError(null);
-              void (async () => {
-                setBusy(true);
-                try {
-                  const publicKey = await connectFreighter();
-                  setWallet(publicKey);
-                  setStep(0, "done", `${publicKey.slice(0, 8)}…`);
-                  await fetchBalances();
-                } catch (err) {
-                  setError(
-                    err instanceof Error ? err.message : "Connect failed",
-                  );
-                } finally {
-                  setBusy(false);
-                }
-              })();
-            }}
-            className="w-full text-sm px-4 py-2 rounded border border-slate-700 hover:border-slate-500"
-          >
-            Connect only (skip Friendbot / trustline)
-          </button>
-        ) : null}
+              </div>
+
+              <div className="highlight-card space-y-2 p-4 text-sm">
+                <p className="font-[650] text-primary">Get testnet USDC</p>
+                <p className="text-xs text-muted-foreground">
+                  Visit the Circle faucet and airdrop USDC to your Stellar public
+                  key. Choose{" "}
+                  <strong className="text-foreground">Stellar</strong> as the
+                  network.
+                </p>
+                <button
+                  type="button"
+                  onClick={openCircleFaucet}
+                  className="btn-primary w-full text-xs"
+                >
+                  Open Circle faucet
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {error ? <p className="text-sm text-red-400">{error}</p> : null}
-
-        <div className="space-y-2 rounded-lg border border-sky-900/50 bg-sky-950/30 p-4 text-sm text-sky-100">
-          <p className="font-medium">Next: get testnet USDC</p>
-          <p className="text-sky-200/80 text-xs">
-            Visit the Circle faucet and airdrop USDC to your Stellar public key.
-            Choose <strong>Stellar</strong> as the network.
-          </p>
+        <footer className="modal-panel__footer space-y-3">
+          {error ? (
+            <div className="error-card px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          ) : null}
           <button
             type="button"
-            onClick={openCircleFaucet}
-            className="w-full px-4 py-2 rounded bg-sky-700 hover:bg-sky-600 text-white text-sm font-medium"
+            onClick={() => onOpenChange(false)}
+            className="btn-secondary w-full"
           >
-            Open Circle faucet
+            Close
           </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onOpenChange(false)}
-          className="w-full text-sm px-4 py-2 rounded border border-slate-700 hover:border-slate-500"
-        >
-          Close
-        </button>
+        </footer>
       </div>
     </div>
   );
