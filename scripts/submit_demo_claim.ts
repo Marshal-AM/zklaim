@@ -46,7 +46,8 @@ async function main() {
   const proofPkg = await generateClaimProofs(claim, { useWorkers: false });
   console.log("  OK: four proofs generated");
 
-  const patientSecret = env.PATIENT_SECRET_KEY;
+  const patientSecret =
+    process.env.PATIENT_SECRET_KEY ?? env.PATIENT_SECRET_KEY;
   if (!patientSecret) {
     console.log("PATIENT_SECRET_KEY not set — proofs only, skipping tx");
     return;
@@ -69,10 +70,31 @@ async function main() {
   }
 
   tx.sign(patient);
-  const { SorobanRpc } = await import("@stellar/stellar-sdk");
-  const server = new SorobanRpc.Server(rpcUrl);
+  const { rpc } = await import("@stellar/stellar-sdk");
+  const server = new rpc.Server(rpcUrl);
   const sent = await server.sendTransaction(tx);
   console.log("  submit status:", sent.status, sent.hash);
+
+  if (sent.status === "ERROR") {
+    throw new Error(
+      `sendTransaction failed: ${JSON.stringify(sent.errorResult)}`,
+    );
+  }
+
+  for (let i = 0; i < 60; i++) {
+    const result = await server.getTransaction(sent.hash);
+    if (result.status !== rpc.Api.GetTransactionStatus.NOT_FOUND) {
+      console.log("  ledger status:", result.status);
+      if (result.status === rpc.Api.GetTransactionStatus.FAILED) {
+        throw new Error(`Transaction failed on ledger: ${sent.hash}`);
+      }
+      console.log("=== submit_claim succeeded ===");
+      console.log("  tx:", sent.hash);
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  throw new Error(`Transaction ${sent.hash} not confirmed`);
 }
 
 main().catch((err) => {

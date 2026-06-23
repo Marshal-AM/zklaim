@@ -2,9 +2,10 @@ import {
   Address,
   Operation,
   TransactionBuilder,
-  SorobanRpc,
   BASE_FEE,
+  rpc,
 } from "@stellar/stellar-sdk";
+import { assembleTransaction } from "@stellar/stellar-sdk/rpc";
 import type { ProofPackage } from "../inputs.js";
 import { buildClaimPackageOnChain, claimPackageToScVal } from "./encoding.js";
 
@@ -19,7 +20,7 @@ export interface BuildClaimTransactionParams {
 export async function buildClaimTransaction(
   params: BuildClaimTransactionParams,
 ) {
-  const server = new SorobanRpc.Server(params.rpcUrl);
+  const server = new rpc.Server(params.rpcUrl);
   const account = await server.getAccount(params.patientPublicKey);
   const claimPkg = buildClaimPackageOnChain(params.proofPackage);
   const claimScVal = claimPackageToScVal(claimPkg);
@@ -42,11 +43,11 @@ export async function buildClaimTransaction(
     .build();
 
   const simulated = await server.simulateTransaction(tx);
-  if (SorobanRpc.Api.isSimulationError(simulated)) {
+  if (rpc.Api.isSimulationError(simulated)) {
     throw new Error(
       `Simulation failed: ${JSON.stringify(simulated.error ?? simulated)}`,
     );
   }
 
-  return SorobanRpc.assembleTransaction(tx, simulated).build();
+  return assembleTransaction(tx, simulated).build();
 }

@@ -1,4 +1,4 @@
-import { SorobanRpc, type Transaction } from "@stellar/stellar-sdk";
+import { rpc, type Transaction } from "@stellar/stellar-sdk";
 
 export interface SubmitClaimParams {
   tx: Transaction;
@@ -11,13 +11,13 @@ export interface SubmitClaimParams {
 export interface SubmitClaimResult {
   hash: string;
   status: string;
-  result?: SorobanRpc.Api.GetTransactionResponse;
+  result?: rpc.Api.GetTransactionResponse;
 }
 
 export async function submitClaim(
   params: SubmitClaimParams,
 ): Promise<SubmitClaimResult> {
-  const server = new SorobanRpc.Server(params.rpcUrl);
+  const server = new rpc.Server(params.rpcUrl);
   const signed = await params.signTransaction(params.tx);
   const sent = await server.sendTransaction(signed);
 
@@ -33,7 +33,7 @@ export async function submitClaim(
 
   for (let i = 0; i < maxAttempts; i++) {
     const result = await server.getTransaction(hash);
-    if (result.status !== SorobanRpc.Api.GetTransactionStatus.NOT_FOUND) {
+    if (result.status !== rpc.Api.GetTransactionStatus.NOT_FOUND) {
       return {
         hash,
         status: result.status,
