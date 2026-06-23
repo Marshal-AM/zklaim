@@ -9,7 +9,8 @@ import type { ClaimPackageOnChain, ProofPackage } from "../inputs.js";
 import { encodePublicInputs } from "../circuits.js";
 
 function bytesScVal(bytes: Uint8Array): xdr.ScVal {
-  return xdr.ScVal.scvBytes(bytes);
+  // SDK 16 types say Buffer but the XDR runtime accepts Uint8Array in both Node + browser
+  return xdr.ScVal.scvBytes(bytes as unknown as Buffer);
 }
 
 function bytesVecScVal(items: Uint8Array[]): xdr.ScVal {

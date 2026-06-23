@@ -10,8 +10,11 @@ import { ensureWalletConnected } from "../components/WalletButton";
 import { ProofProgress } from "../components/ProofProgress";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { SubmitClaimLogPanel } from "../components/SubmitClaimLogPanel";
-import { freighterSignTransaction } from "../lib/freighter";
-import { prepareSorobanTransaction, assertSorobanTransactionReady } from "../lib/sorobanWallet";
+import type { SorobanDebugSink } from "@zklaim/proof-gen/stellar/sorobanDebug";
+import {
+  signSorobanClaimTransaction,
+  assertSorobanTransactionReady,
+} from "../lib/sorobanWallet";
 import { markDeliveryClaimed } from "../lib/claimDelivery";
 import {
   decryptClaimToken,
@@ -195,7 +198,9 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         fraud_proof_present: Boolean(proofPkg.fraud),
       });
 
-      log.info("Requesting Freighter signature (simulate once, then sign)…");
+      log.info(
+        "Requesting Freighter signature (fresh simulate → sign → send)…",
+      );
       const getUnsigned = createUnsignedClaimPreparer({
         proofPackage: proofPkg,
         patientPublicKey: address,
@@ -204,21 +209,43 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         networkPassphrase: env.networkPassphrase,
       });
 
+      const sorobanDebug: SorobanDebugSink = (level, step, data) => {
+        const label = `[Soroban] ${step}`;
+        if (level === "error") log.error(label, data);
+        else if (level === "warn") log.warn(label, data);
+        else log.info(label, data);
+      };
+
+      let sorobanSignAttempt = 0;
+
       const result = await submitClaim({
         rpcUrl: env.rpcUrl,
+        debug: sorobanDebug,
+        onRetry: (attempt) => {
+          log.warn(
+            "Soroban metadata expired — re-simulating and re-signing in Freighter…",
+            { attempt },
+          );
+        },
         signTransaction: async () => {
+          const attempt = sorobanSignAttempt++;
           const unsigned = await getUnsigned();
-          log.info("Simulating Soroban transaction…");
-          const prepared = await prepareSorobanTransaction(
+          log.info(
+            "Simulating + signing (approve Freighter when prompted)…",
+            { attempt },
+          );
+          const signed = await signSorobanClaimTransaction(
             unsigned,
             env.rpcUrl,
             env.networkPassphrase,
             address,
+            { debug: sorobanDebug, attempt },
           );
-          log.success("Simulation OK — approve in Freighter", { fee: prepared.fee });
-          const signed = await freighterSignTransaction(prepared);
           assertSorobanTransactionReady(signed);
-          log.success("Freighter signed transaction");
+          log.success("Freighter signed — submitting immediately", {
+            fee: signed.fee,
+            attempt,
+          });
           return signed;
         },
       });
@@ -319,7 +346,11 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         msg.includes("Soroban metadata expired")
       ) {
         setError(
-          "Soroban transaction rejected at submit. Approve all Freighter prompts (auth + transaction) and retry immediately.",
+          "Soroban transaction rejected at submit. Retry immediately. If this persists, run npm run redeploy:asp-escrow to deploy contract footprint fixes, then restart the dev server.",
+        );
+      } else if (msg.includes("Freighter changed the transaction body")) {
+        setError(
+          "Freighter network mismatch. Switch Freighter to Testnet (Settings → Network), refresh, and retry.",
         );
       } else if (msg.includes("missing Soroban metadata")) {
         setError(

@@ -45,7 +45,18 @@ export function IdentityCard() {
             Copy Stellar address
           </button>
         </div>
-      ) : null}
+      ) : identity.stellar_address ? (
+        <div className="space-y-1">
+          <p className="text-xs text-slate-500">Stellar address (share with doctor)</p>
+          <code className="block text-xs font-mono text-slate-300 break-all bg-slate-950 p-2 rounded">
+            {identity.stellar_address}
+          </code>
+        </div>
+      ) : (
+        <p className="text-xs text-amber-400">
+          Connect Freighter to show your Stellar address for doctors.
+        </p>
+      )}
       <div className="space-y-1">
         <p className="text-xs text-slate-500">Public encryption key</p>
         <code className="block text-xs font-mono text-slate-300 break-all bg-slate-950 p-2 rounded">

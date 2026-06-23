@@ -1,7 +1,7 @@
 import {
   Asset,
+  Horizon,
   Operation,
-  rpc,
   TransactionBuilder,
 } from "@stellar/stellar-sdk";
 import { env } from "../config/env";
@@ -11,6 +11,8 @@ export type SetupStepStatus = "idle" | "active" | "done" | "error" | "skipped";
 
 const HORIZON = "https://horizon-testnet.stellar.org";
 const FRIENDBOT = "https://friendbot.stellar.org";
+
+const horizon = new Horizon.Server(HORIZON);
 
 async function accountExists(publicKey: string): Promise<boolean> {
   const res = await fetch(`${HORIZON}/accounts/${publicKey}`);
@@ -56,8 +58,9 @@ export async function ensureUsdcTrustline(publicKey: string): Promise<string | n
     return null;
   }
 
-  const server = new rpc.Server(env.rpcUrl);
-  const account = await server.getAccount(publicKey);
+  // Classic changeTrust — use Horizon, not Soroban RPC. pollTransaction on RPC
+  // parses resultMetaXdr and can throw "Bad union switch: 4" on testnet (Protocol 23 meta).
+  const account = await horizon.loadAccount(publicKey);
   const tx = new TransactionBuilder(account, {
     fee: "1000",
     networkPassphrase: env.networkPassphrase,
@@ -71,12 +74,14 @@ export async function ensureUsdcTrustline(publicKey: string): Promise<string | n
     .build();
 
   const signed = await freighterSignTransaction(tx);
-  const sent = await server.sendTransaction(signed);
-  const result = await server.pollTransaction(sent.hash);
-  if (result.status !== rpc.Api.GetTransactionStatus.SUCCESS) {
-    throw new Error(`USDC trustline failed: ${result.status}`);
+  try {
+    const result = await horizon.submitTransaction(signed);
+    return result.hash;
+  } catch (err) {
+    const detail =
+      err instanceof Error ? err.message : "USDC trustline submission failed";
+    throw new Error(`USDC trustline failed: ${detail}`);
   }
-  return result.txHash;
 }
 
 export async function setupFreighterWallet(

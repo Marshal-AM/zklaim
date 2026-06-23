@@ -1,3 +1,4 @@
+import { normalizeStellarAddress } from "./stellarAddress";
 import { env } from "../config/env";
 import { getSupabase } from "./supabase";
 
@@ -20,18 +21,20 @@ export async function registerPatientProfile(params: {
     throw new Error("Supabase is not configured");
   }
 
+  const stellarAddress = normalizeStellarAddress(params.address);
+
   const registrationMessage = buildRegistrationMessage(
-    params.address,
+    stellarAddress,
     params.boxPublicKey,
   );
   const registrationSig = await params.signMessage(
     registrationMessage,
-    params.address,
+    stellarAddress,
   );
 
   const { error } = await supabase.from("patient_profiles").upsert(
     {
-      stellar_address: params.address,
+      stellar_address: stellarAddress,
       box_public_key: params.boxPublicKey,
       registration_message: registrationMessage,
       registration_sig: registrationSig,
@@ -57,10 +60,12 @@ export async function lookupBoxPublicKey(
     return null;
   }
 
+  const stellarAddress = normalizeStellarAddress(patientAddress);
+
   const { data, error } = await supabase
     .from("patient_profiles")
     .select("box_public_key")
-    .eq("stellar_address", patientAddress)
+    .eq("stellar_address", stellarAddress)
     .maybeSingle();
 
   if (error) {

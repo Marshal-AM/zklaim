@@ -3,18 +3,18 @@ import {
   isConnected,
   isAllowed,
   requestAccess,
-  getPublicKey,
-  getNetworkDetails,
+  getAddress,
+  getNetwork,
   signTransaction,
-  signBlob,
+  signMessage,
 } from "@stellar/freighter-api";
 import { TransactionBuilder, type Transaction } from "@stellar/stellar-sdk";
 import { env } from "../config/env";
 import {
-  encodeBlobForFreighter,
   freighterLog,
   freighterLogError,
-  parseSignBlobResult,
+  formatFreighterError,
+  parseSignMessageResult,
   parseSignTransactionResult,
 } from "./freighterDebug";
 
@@ -34,42 +34,56 @@ function assertFreighterAvailable(): void {
 }
 
 async function assertExtensionInstalled(): Promise<void> {
-  const installed = await isConnected();
-  freighterLog("isConnected", { installed });
-  if (!installed) {
+  const result = await isConnected();
+  freighterLog("isConnected", result);
+  if (result.error) {
+    throw new Error(formatFreighterError(result.error));
+  }
+  if (!result.isConnected) {
     throw new FreighterNotInstalledError();
   }
 }
 
-/** v2 API: requestAccess returns the public key string. */
+/** Freighter API v3: requestAccess / getAddress return { address, error? }. */
 async function ensureFreighterAccess(): Promise<string> {
   assertFreighterAvailable();
   await assertExtensionInstalled();
 
   const allowed = await isAllowed();
-  freighterLog("isAllowed", { allowed });
+  freighterLog("isAllowed", allowed);
+  if (allowed.error) {
+    throw new Error(formatFreighterError(allowed.error));
+  }
 
-  if (allowed) {
+  if (allowed.isAllowed) {
     try {
-      const pk = await getPublicKey();
-      freighterLog("getPublicKey", { address: pk });
-      return pk;
+      const addr = await getAddress();
+      freighterLog("getAddress", addr);
+      if (!addr.error && addr.address) {
+        return addr.address;
+      }
     } catch (err) {
-      freighterLogError("getPublicKey failed, falling back to requestAccess", err);
+      freighterLogError("getAddress failed, falling back to requestAccess", err);
     }
   }
 
-  const address = await requestAccess();
-  freighterLog("requestAccess", { address });
-  if (!address || typeof address !== "string") {
+  const access = await requestAccess();
+  freighterLog("requestAccess", access);
+  if (access.error) {
+    throw new Error(formatFreighterError(access.error));
+  }
+  if (!access.address) {
     throw new Error("Freighter connection cancelled");
   }
-  return address;
+  return access.address;
 }
 
 async function assertTestnet(): Promise<void> {
-  const details = await getNetworkDetails();
-  freighterLog("getNetworkDetails", details);
+  const details = await getNetwork();
+  freighterLog("getNetwork", details);
+  if (details.error) {
+    throw new Error(formatFreighterError(details.error));
+  }
   if (details.networkPassphrase !== env.networkPassphrase) {
     throw new Error(
       "Switch Freighter to Testnet (Settings → Network → Testnet), then try again.",
@@ -86,42 +100,71 @@ export async function connectFreighter(): Promise<string> {
 export async function getFreighterAddress(): Promise<string | null> {
   if (!isBrowser) return null;
   try {
-    if (!(await isConnected())) return null;
-    if (!(await isAllowed())) return null;
-    const address = await getPublicKey();
-    const details = await getNetworkDetails();
-    if (details.networkPassphrase !== env.networkPassphrase) return null;
-    return address;
+    const conn = await isConnected();
+    if (!conn.isConnected) return null;
+    const allowed = await isAllowed();
+    if (!allowed.isAllowed) return null;
+    const addr = await getAddress();
+    if (addr.error || !addr.address) return null;
+    const net = await getNetwork();
+    if (net.networkPassphrase !== env.networkPassphrase) return null;
+    return addr.address;
   } catch {
     return null;
   }
 }
 
-export async function freighterSignTransaction(
-  tx: Transaction,
-): Promise<Transaction> {
-  const address = await ensureFreighterAccess();
+export interface FreighterSignedTransaction {
+  signedXdr: string;
+  signed: Transaction;
+}
+
+/**
+ * Sign a prepared Soroban transaction XDR as-is (no rebuild / setTimeout).
+ * Reference: freighter/stellar-test — prepare → sign XDR → submit.
+ */
+export async function freighterSignPreparedXdr(
+  preparedXdr: string,
+  accountToSign: string,
+): Promise<FreighterSignedTransaction> {
+  await ensureFreighterAccess();
   await assertTestnet();
 
-  freighterLog("signTransaction request", {
-    source: tx.source,
-    connectedAddress: address,
-    fee: tx.fee,
-    operations: tx.operations.length,
+  freighterLog("signTransaction request (prepared XDR)", {
+    accountToSign,
+    preparedXdrTail: preparedXdr.slice(-16),
+    preparedXdrLength: preparedXdr.length,
   });
 
-  const raw = await signTransaction(tx.toXDR(), {
-    network: "TESTNET",
+  const result = await signTransaction(preparedXdr, {
     networkPassphrase: env.networkPassphrase,
-    accountToSign: tx.source,
+    address: accountToSign,
   });
 
-  const signedXdr = parseSignTransactionResult(raw);
+  const signedXdr = parseSignTransactionResult(result);
   const signed = TransactionBuilder.fromXDR(
     signedXdr,
     env.networkPassphrase,
   ) as Transaction;
+  const reserialized = signed.toXDR();
+  if (reserialized !== signedXdr) {
+    freighterLog("warning: SDK reserialized signed XDR differs from Freighter payload", {
+      originalLength: signedXdr.length,
+      reserializedLength: reserialized.length,
+      originalTail: signedXdr.slice(-16),
+      reserializedTail: reserialized.slice(-16),
+    });
+  }
+  (signed as Transaction & { __signedXdr?: string }).__signedXdr = signedXdr;
 
+  return { signedXdr, signed };
+}
+
+/** @deprecated Prefer freighterSignPreparedXdr for Soroban flows. */
+export async function freighterSignTransaction(
+  tx: Transaction,
+): Promise<Transaction> {
+  const { signed } = await freighterSignPreparedXdr(tx.toXDR(), tx.source);
   return signed;
 }
 
@@ -132,13 +175,10 @@ export async function freighterSignMessage(
   const connected = await ensureFreighterAccess();
   await assertTestnet();
 
-  const blob = encodeBlobForFreighter(message);
-
-  freighterLog("signBlob request", {
+  freighterLog("signMessage request", {
     accountToSign: address,
     connectedAddress: connected,
     plainTextLength: message.length,
-    base64BlobLength: blob.length,
     plainPreview: message.slice(0, 120),
     accountsMatch: address === connected,
   });
@@ -151,13 +191,14 @@ export async function freighterSignMessage(
 
   let raw: unknown;
   try {
-    raw = await signBlob(blob, { accountToSign: address });
+    raw = await signMessage(message, {
+      networkPassphrase: env.networkPassphrase,
+      address,
+    });
   } catch (err) {
-    freighterLogError("signBlob threw", err);
-    throw err instanceof Error
-      ? err
-      : new Error("Freighter signBlob failed");
+    freighterLogError("signMessage threw", err);
+    throw err instanceof Error ? err : new Error("Freighter signMessage failed");
   }
 
-  return parseSignBlobResult(raw);
+  return parseSignMessageResult(raw);
 }

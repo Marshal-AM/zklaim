@@ -8,6 +8,8 @@ export interface PatientIdentity {
   deductible_limit_cents: number;
   accumulator_met_cents: number;
   policy_id: string;
+  /** Stellar address at onboarding — used for Supabase inbox sync without wallet. */
+  stellar_address?: string;
 }
 
 export interface InboxClaim {

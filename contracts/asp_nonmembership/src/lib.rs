@@ -86,9 +86,6 @@ impl AspNonmembership {
         path: Vec<BytesN<32>>,
         path_indices: Vec<u32>,
     ) -> bool {
-        if Self::contains(env.clone(), billing_pattern_hash.clone()) {
-            return false;
-        }
         let root = Self::get_root(env.clone());
         sparse_merkle::verify_non_membership(
             &env,

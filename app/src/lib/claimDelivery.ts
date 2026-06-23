@@ -1,3 +1,4 @@
+import { normalizeStellarAddress } from "./stellarAddress";
 import type { EncryptedClaimToken } from "./claimToken";
 import { env } from "../config/env";
 import { getSupabase, type ClaimDeliveryRow } from "./supabase";
@@ -13,10 +14,12 @@ export async function insertClaimDelivery(params: {
     throw new Error("Supabase is not configured");
   }
 
+  const patientAddress = normalizeStellarAddress(params.patientAddress);
+
   const { data, error } = await supabase
     .from("claim_deliveries")
     .insert({
-      patient_address: params.patientAddress,
+      patient_address: patientAddress,
       doctor_address: params.doctorAddress,
       claim_nonce: params.claimNonce,
       encrypted_token: params.token,
@@ -45,10 +48,12 @@ export async function fetchPendingDeliveries(
     return [];
   }
 
+  const normalized = normalizeStellarAddress(patientAddress);
+
   const { data, error } = await supabase
     .from("claim_deliveries")
     .select("*")
-    .eq("patient_address", patientAddress)
+    .eq("patient_address", normalized)
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 

@@ -32,10 +32,12 @@ fn leaf_at(env: &Env, index: u32) -> BytesN<32> {
     if index >= leaf_count(env) {
         return zero_field(env);
     }
-    env.storage()
-        .persistent()
-        .get(&DataKey::Leaf(index))
-        .unwrap_or_else(|| zero_field(env))
+    let key = DataKey::Leaf(index);
+    if env.storage().persistent().has(&key) {
+        env.storage().persistent().get(&key).unwrap()
+    } else {
+        zero_field(env)
+    }
 }
 
 fn subtree_hash(env: &Env, level: u32, node_index: u32) -> BytesN<32> {

@@ -39,32 +39,12 @@ export function describeFreighterValue(value: unknown): string {
   return `${typeof value} ${String(value)}`;
 }
 
-/** Freighter signBlob expects base64-encoded payload (extension 5.2+). */
-export function encodeBlobForFreighter(plainText: string): string {
-  const bytes = new TextEncoder().encode(plainText);
-  return bytesToBase64(bytes);
-}
-
 export function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) {
     binary += String.fromCharCode(byte);
   }
   return btoa(binary);
-}
-
-/** Freighter v2 + modern extension may return Buffer / Uint8Array signatures. */
-export function normalizeSignatureToBase64(value: unknown): string | null {
-  if (typeof value === "string" && value.length > 0) {
-    return value;
-  }
-
-  const bytes = coalesceSignatureBytes(value);
-  if (bytes && bytes.length > 0) {
-    return bytesToBase64(bytes);
-  }
-
-  return null;
 }
 
 function coalesceSignatureBytes(value: unknown): Uint8Array | null {
@@ -87,8 +67,55 @@ function coalesceSignatureBytes(value: unknown): Uint8Array | null {
   return null;
 }
 
-export function parseSignBlobResult(raw: unknown): string {
-  freighterLog("signBlob raw response", describeFreighterValue(raw));
+/** Freighter v3+ may return Buffer / Uint8Array signatures. */
+export function normalizeSignatureToBase64(value: unknown): string | null {
+  if (typeof value === "string" && value.length > 0) {
+    return value;
+  }
+
+  const bytes = coalesceSignatureBytes(value);
+  if (bytes && bytes.length > 0) {
+    return bytesToBase64(bytes);
+  }
+
+  return null;
+}
+
+export function formatFreighterError(error: unknown): string {
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    if ("message" in error) {
+      return String((error as { message: unknown }).message);
+    }
+    if ("code" in error) {
+      return JSON.stringify(error);
+    }
+  }
+  return JSON.stringify(error);
+}
+
+export function parseSignAuthEntryResult(raw: {
+  signedAuthEntry: unknown;
+  error?: unknown;
+}): Uint8Array {
+  freighterLog("signAuthEntry raw response", describeFreighterValue(raw));
+
+  if (raw.error) {
+    throw new Error(`Freighter error: ${formatFreighterError(raw.error)}`);
+  }
+
+  const bytes = coalesceSignatureBytes(raw.signedAuthEntry);
+  if (!bytes || bytes.length === 0) {
+    throw new Error(
+      "Freighter returned an empty auth signature. Approve the auth entry prompt and retry.",
+    );
+  }
+
+  return bytes;
+}
+
+export function parseSignMessageResult(raw: unknown): string {
+  freighterLog("signMessage raw response", describeFreighterValue(raw));
 
   if (typeof raw === "string" && raw.length === 0) {
     throw new Error(
@@ -96,47 +123,42 @@ export function parseSignBlobResult(raw: unknown): string {
     );
   }
 
-  const direct = normalizeSignatureToBase64(raw);
-  if (direct) {
-    freighterLog("signBlob signature (direct)", {
-      encoding: "base64",
-      byteLength: coalesceSignatureBytes(raw)?.length ?? "n/a",
-      preview: direct.slice(0, 24),
-    });
-    return direct;
-  }
-
   if (raw && typeof raw === "object") {
     const record = raw as Record<string, unknown>;
+    if (record.error) {
+      throw new Error(`Freighter error: ${formatFreighterError(record.error)}`);
+    }
     const candidates = [
-      "signedBlob",
-      "signature",
-      "signedMessage",
-      "signedPayload",
+      record.signedMessage,
+      record.signedBlob,
+      record.signature,
+      record.signedPayload,
     ];
-    for (const key of candidates) {
-      const normalized = normalizeSignatureToBase64(record[key]);
+    for (const candidate of candidates) {
+      const normalized = normalizeSignatureToBase64(candidate);
       if (normalized) {
-        freighterLog(`signBlob signature from field ${key}`, {
-          encoding: "base64",
-          preview: normalized.slice(0, 24),
-        });
         return normalized;
       }
     }
-    const err = record.error;
-    if (err) {
-      if (typeof err === "string") throw new Error(err);
-      if (typeof err === "object" && err && "message" in err) {
-        throw new Error(String((err as { message: unknown }).message));
-      }
-      throw new Error(JSON.stringify(err));
-    }
   }
+
+  const direct = normalizeSignatureToBase64(raw);
+  if (direct) return direct;
 
   throw new Error(
     `Freighter did not return a signature (${describeFreighterValue(raw)}). Check the console for [ZKlaim Freighter] logs.`,
   );
+}
+
+/** @deprecated v3 uses signMessage; kept for tests. */
+export function encodeBlobForFreighter(plainText: string): string {
+  const bytes = new TextEncoder().encode(plainText);
+  return bytesToBase64(bytes);
+}
+
+/** @deprecated v3 uses parseSignMessageResult. */
+export function parseSignBlobResult(raw: unknown): string {
+  return parseSignMessageResult(raw);
 }
 
 export function parseSignTransactionResult(raw: unknown): string {
@@ -146,14 +168,14 @@ export function parseSignTransactionResult(raw: unknown): string {
 
   if (raw && typeof raw === "object") {
     const record = raw as Record<string, unknown>;
+    if (record.error) {
+      throw new Error(`Freighter error: ${formatFreighterError(record.error)}`);
+    }
     const xdr =
-      record.signedTransaction ??
       record.signedTxXdr ??
+      record.signedTransaction ??
       record.signedXdr;
     if (typeof xdr === "string" && xdr.length > 0) return xdr;
-    if (record.error) {
-      throw new Error(JSON.stringify(record.error));
-    }
   }
 
   throw new Error(

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { getFreighterAddress } from "../lib/freighter";
 import { decodeTokenFromUrl, type EncryptedClaimToken } from "../lib/claimToken";
 import {
   fetchPendingDeliveries,
@@ -34,6 +35,24 @@ export function ClaimInbox({
   const inbox = usePatientStore((s) => s.inbox);
   const addInboxClaim = usePatientStore((s) => s.addInboxClaim);
   const [error, setError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  const importFailureMessage = (
+    reason: "duplicate" | "invalid_signature" | "decrypt_failed",
+  ): string | null => {
+    switch (reason) {
+      case "decrypt_failed":
+        return (
+          "Could not decrypt a claim from your inbox. Your local encryption keys " +
+          "may not match the ZKlaim directory — reconnect the same Freighter wallet " +
+          "you used at onboarding, or re-register your profile."
+        );
+      case "invalid_signature":
+        return "A claim from your inbox has an invalid doctor signature. Ask your provider to resend.";
+      default:
+        return null;
+    }
+  };
 
   const importToken = useCallback(
     async (
@@ -52,10 +71,14 @@ export function ClaimInbox({
       if (!result.ok) {
         if (result.reason === "duplicate" && deliveryId) {
           await markDeliveryImported(deliveryId);
+        } else {
+          const message = importFailureMessage(result.reason);
+          if (message) setError(message);
         }
         return false;
       }
 
+      setError(null);
       const next = [...currentInbox, result.entry];
       addInboxClaim(result.entry);
       await savePatientInbox(next);
@@ -71,10 +94,17 @@ export function ClaimInbox({
   );
 
   const syncSupabaseDeliveries = useCallback(async () => {
-    if (!identity || !patientAddress || !env.isSupabaseEnabled()) return;
+    if (!identity || !env.isSupabaseEnabled()) return;
 
+    let address = patientAddress;
+    if (!address) {
+      address = (await getFreighterAddress()) ?? null;
+    }
+    if (!address) return;
+
+    setSyncing(true);
     try {
-      const rows = await fetchPendingDeliveries(patientAddress);
+      const rows = await fetchPendingDeliveries(address);
       for (const row of rows) {
         const token = rowToEncryptedToken(row);
         await importToken(token, row.id);
@@ -83,6 +113,8 @@ export function ClaimInbox({
       setError(
         err instanceof Error ? err.message : "Failed to sync claim inbox",
       );
+    } finally {
+      setSyncing(false);
     }
   }, [identity, patientAddress, importToken]);
 
@@ -109,7 +141,7 @@ export function ClaimInbox({
   }, [syncSupabaseDeliveries]);
 
   useEffect(() => {
-    if (!patientAddress || !identity || !env.isSupabaseEnabled()) return;
+    if (!identity || !env.isSupabaseEnabled() || !patientAddress) return;
 
     const supabase = getSupabase();
     if (!supabase) return;
@@ -150,10 +182,28 @@ export function ClaimInbox({
       {error && <ErrorBanner message={error} />}
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-medium">Claim inbox</h3>
-        {inboxClaims.length > 1 && (
-          <span className="text-xs text-slate-500">Tap a claim to select it</span>
-        )}
+        <div className="flex items-center gap-2">
+          {env.isSupabaseEnabled() ? (
+            <button
+              type="button"
+              onClick={() => void syncSupabaseDeliveries()}
+              disabled={syncing || !identity}
+              className="text-xs px-2 py-1 rounded border border-slate-700 hover:border-slate-500 disabled:opacity-50"
+            >
+              {syncing ? "Syncing…" : "Refresh"}
+            </button>
+          ) : null}
+          {inboxClaims.length > 1 ? (
+            <span className="text-xs text-slate-500">Tap a claim to select it</span>
+          ) : null}
+        </div>
       </div>
+      {env.isSupabaseEnabled() && identity && !patientAddress ? (
+        <p className="text-sm text-amber-400">
+          Connect Freighter (same wallet you gave your doctor) so we can load
+          claims from the directory.
+        </p>
+      ) : null}
       {inboxClaims.length === 0 ? (
         <p className="text-sm text-slate-500">
           {env.isSupabaseEnabled()

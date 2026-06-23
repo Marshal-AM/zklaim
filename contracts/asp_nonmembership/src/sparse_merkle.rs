@@ -35,11 +35,11 @@ pub fn empty_root(env: &Env) -> BytesN<32> {
 
 fn hash_at_level(env: &Env, level: u32, index: u32) -> BytesN<32> {
     if level == SPARSE_DEPTH {
-        return env
-            .storage()
-            .persistent()
-            .get(&DataKey::Leaf(index))
-            .unwrap_or_else(|| default_hash(env, SPARSE_DEPTH));
+        let key = DataKey::Leaf(index);
+        if env.storage().persistent().has(&key) {
+            return env.storage().persistent().get(&key).unwrap();
+        }
+        return default_hash(env, SPARSE_DEPTH);
     }
     env.storage()
         .instance()

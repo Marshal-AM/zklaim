@@ -6,8 +6,8 @@ import {
   TransactionBuilder,
   xdr,
 } from "@stellar/stellar-sdk";
-import { freighterSignTransaction } from "./freighter";
 import { env } from "../config/env";
+import { signPreparedSorobanInvoke } from "./sorobanWallet";
 
 export interface InvokeResult {
   hash: string;
@@ -36,15 +36,11 @@ async function buildAndSendInvoke(params: {
     .setTimeout(300)
     .build();
 
-  const simulated = await server.simulateTransaction(tx);
-  if (rpc.Api.isSimulationError(simulated)) {
-    throw new Error(
-      `Simulation failed: ${JSON.stringify(simulated.error ?? simulated)}`,
-    );
-  }
-
-  const assembled = rpc.assembleTransaction(tx, simulated).build();
-  const signed = await freighterSignTransaction(assembled);
+  const signed = await signPreparedSorobanInvoke(
+    tx,
+    env.rpcUrl,
+    params.source,
+  );
   const sent = await server.sendTransaction(signed);
   if (sent.status === "ERROR") {
     throw new Error(`Transaction failed: ${sent.hash}`);

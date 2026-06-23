@@ -118,14 +118,6 @@ impl ClaimEscrow {
             panic!("asp root mismatch");
         }
 
-        let flagged: bool = env.invoke_contract(
-            &asp_fraud,
-            &Symbol::new(&env, "contains"),
-            (pkg.billing_pattern_hash.clone(),).into_val(&env),
-        );
-        if flagged {
-            panic!("billing pattern flagged as fraud");
-        }
         let nm_ok: bool = env.invoke_contract(
             &asp_fraud,
             &Symbol::new(&env, "verify_non_membership"),
@@ -137,7 +129,7 @@ impl ClaimEscrow {
                 .into_val(&env),
         );
         if !nm_ok {
-            panic!("fraud non-membership proof invalid");
+            panic!("billing pattern flagged as fraud");
         }
 
         let accum_inputs = pkg.accum_inputs.clone();

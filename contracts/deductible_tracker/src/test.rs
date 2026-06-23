@@ -9,11 +9,12 @@ fn test_deductible_crossing() {
     let env = Env::default();
     env.mock_all_auths();
     let verifier = Address::generate(&env);
+    let admin = Address::generate(&env);
     let patient = Address::generate(&env);
 
     let contract_id = env.register(DeductibleTracker, ());
     let client = DeductibleTrackerClient::new(&env, &contract_id);
-    client.init(&verifier);
+    client.init(&verifier, &admin);
 
     let zero = zklaim_common::zero_field(&env);
     assert_eq!(client.get_accumulator(&patient), zero);

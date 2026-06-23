@@ -9,11 +9,8 @@ import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Keypair, Networks } from "@stellar/stellar-sdk";
-import {
-  generateClaimProofs,
-  buildClaimTransaction,
-  loadDemoClaimData,
-} from "@zklaim/proof-gen";
+import { generateClaimProofs, buildClaimTransaction } from "@zklaim/proof-gen";
+import { loadDemoClaimData } from "@zklaim/proof-gen/demo";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");

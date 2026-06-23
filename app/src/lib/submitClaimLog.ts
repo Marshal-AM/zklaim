@@ -15,7 +15,8 @@ export interface SubmitClaimLogEntry {
 function consoleEnabled(): boolean {
   return (
     import.meta.env.DEV ||
-    import.meta.env.VITE_SUBMIT_CLAIM_DEBUG === "true"
+    import.meta.env.VITE_SUBMIT_CLAIM_DEBUG === "true" ||
+    import.meta.env.VITE_SOROBAN_DEBUG === "true"
   );
 }
 

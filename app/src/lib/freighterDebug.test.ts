@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   encodeBlobForFreighter,
   parseSignBlobResult,
+  parseSignMessageResult,
+  parseSignTransactionResult,
   bytesToBase64,
 } from "./freighterDebug";
 
@@ -31,5 +33,32 @@ describe("freighterDebug", () => {
 
   it("throws on empty string with helpful message", () => {
     expect(() => parseSignBlobResult("")).toThrow(/empty signature/i);
+  });
+
+  it("parses v3 signMessage object with signedMessage string", () => {
+    expect(parseSignMessageResult({ signedMessage: "sig-base64", signerAddress: "G..." })).toBe(
+      "sig-base64",
+    );
+  });
+
+  it("parses v3 signMessage object with Buffer-shaped signedMessage", () => {
+    const bytes = new Uint8Array(64).fill(7);
+    const result = parseSignMessageResult({
+      signedMessage: { type: "Buffer", data: Array.from(bytes) },
+      signerAddress: "G...",
+    });
+    expect(result).toBe(bytesToBase64(bytes));
+  });
+
+  it("parses signedTxXdr from object signTransaction result", () => {
+    expect(parseSignTransactionResult({ signedTxXdr: "signed-xdr" })).toBe(
+      "signed-xdr",
+    );
+  });
+
+  it("throws Freighter error from signTransaction result", () => {
+    expect(() =>
+      parseSignTransactionResult({ error: "User declined access" }),
+    ).toThrow(/Freighter error: User declined access/);
   });
 });

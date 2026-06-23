@@ -30,6 +30,7 @@ export function OnboardingPanel() {
         deductible_limit_cents: 100_000,
         accumulator_met_cents: 80_000,
         policy_id: "DEMO-POLICY-001",
+        stellar_address: address,
       };
       await savePatientIdentity(identity);
       setIdentity(identity);

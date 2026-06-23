@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePatientStore } from "../store/patientStore";
-import { loadPatientPersistence } from "../lib/persistence";
+import { loadPatientPersistence, savePatientIdentity } from "../lib/persistence";
+import { tryNormalizeStellarAddress } from "../lib/stellarAddress";
 import { OnboardingPanel } from "./OnboardingPanel";
 import { IdentityCard } from "./IdentityCard";
 import { ClaimInbox } from "./ClaimInbox";
@@ -16,6 +17,24 @@ export function PatientPage() {
   const setIdentity = usePatientStore((s) => s.setIdentity);
   const [loaded, setLoaded] = useState(false);
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
+
+  const patientAddress = useMemo(
+    () =>
+      tryNormalizeStellarAddress(walletAddress) ??
+      tryNormalizeStellarAddress(identity?.stellar_address) ??
+      null,
+    [walletAddress, identity?.stellar_address],
+  );
+
+  useEffect(() => {
+    if (!identity || !walletAddress) return;
+    const normalizedWallet = tryNormalizeStellarAddress(walletAddress);
+    if (!normalizedWallet) return;
+    if (identity.stellar_address === normalizedWallet) return;
+    const updated = { ...identity, stellar_address: normalizedWallet };
+    setIdentity(updated);
+    void savePatientIdentity(updated);
+  }, [identity, walletAddress, setIdentity]);
 
   useEffect(() => {
     void loadPatientPersistence().then((data) => {
@@ -74,7 +93,7 @@ export function PatientPage() {
             limitCents={identity.deductible_limit_cents}
           />
           <ClaimInbox
-            patientAddress={walletAddress}
+            patientAddress={patientAddress}
             selectedClaimId={selectedClaimId}
             onSelectClaim={setSelectedClaimId}
           />

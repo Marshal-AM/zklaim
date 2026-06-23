@@ -18,6 +18,13 @@ const RESULT_CODES: Record<number, string> = {
   [-3]: "txMalformed",
 };
 
+export function isSorobanMetadataExpiredError(message: string): boolean {
+  return (
+    message.includes("txSorobanInvalid") ||
+    message.includes("Soroban metadata expired")
+  );
+}
+
 export function decodeSubmitErrorXdr(xdrBase64: string | undefined): string {
   if (!xdrBase64) return "unknown submit error";
   try {

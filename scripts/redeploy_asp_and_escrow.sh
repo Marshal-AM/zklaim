@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fresh asp_membership (3 leaves, root matches asp_tree.json) + new claim_escrow wire-up.
+# Fresh asp_membership + asp_nonmembership + deductible_tracker + claim_escrow wire-up.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -21,8 +21,6 @@ source "$ROOT/.env"
 
 VERIFIER_ID="${VERIFIER_CONTRACT_ID:?}"
 POLICY_ID="${POLICY_REGISTRY_CONTRACT_ID:?}"
-TRACKER_ID="${DEDUCTIBLE_TRACKER_CONTRACT_ID:?}"
-USDC_TOKEN=$(stellar contract id asset --asset "$ZKLAIM_USDC_ASSET" --network "$NETWORK")
 INSURER="${INSURER_FUND_ADDRESS:-$ADMIN_ADDR}"
 
 ASP_TREE_JSON="$ROOT/scripts/artifacts/asp_tree.json"
@@ -102,7 +100,17 @@ if [[ "$FRAUD_ONCHAIN_ROOT" != "$EXPECTED_FRAUD_ROOT" ]]; then
 fi
 echo "Fraud root verified: 0x$FRAUD_ONCHAIN_ROOT"
 
-echo "=== Deploy claim_escrow (wire new ASP + fraud) ==="
+echo "=== Deploy deductible_tracker ==="
+TRACKER_ID=$(stellar contract deploy \
+  --wasm "$ROOT/contracts/$WASM/deductible_tracker.wasm" \
+  --source-account "$IDENTITY" --network "$NETWORK")
+stellar contract invoke --id "$TRACKER_ID" --source-account "$IDENTITY" --network "$NETWORK" \
+  -- init --verifier "$VERIFIER_ID" --admin "$ADMIN_ADDR"
+echo "Deductible Tracker: $TRACKER_ID"
+
+USDC_TOKEN=$(stellar contract id asset --asset "$ZKLAIM_USDC_ASSET" --network "$NETWORK")
+
+echo "=== Deploy claim_escrow (wire new ASP + fraud + tracker) ==="
 ESCROW_ID=$(stellar contract deploy \
   --wasm "$ROOT/contracts/$WASM/claim_escrow.wasm" \
   --source-account "$IDENTITY" --network "$NETWORK")
@@ -118,6 +126,10 @@ stellar contract invoke --id "$ESCROW_ID" --source-account "$IDENTITY" --network
   --insurer_escrow "$INSURER" \
   --coinsurance_bps 2000
 echo "Claim Escrow: $ESCROW_ID"
+
+echo "=== Wire claim_escrow into deductible_tracker (eliminates oversized auth sub-invocation) ==="
+stellar contract invoke --id "$TRACKER_ID" --source-account "$IDENTITY" --network "$NETWORK" \
+  -- set_escrow --escrow "$ESCROW_ID"
 
 echo "=== Fund claim escrow with USDC (insurer → contract) ==="
 # 50 USDC reserve for demo payouts (7 decimals)
@@ -137,6 +149,8 @@ update_env "ASP_MEMBER_CONTRACT_ID" "$ASP_MEMBER_ID"
 update_env "VITE_ASP_MEMBER_CONTRACT_ID" "$ASP_MEMBER_ID"
 update_env "ASP_FRAUD_CONTRACT_ID" "$ASP_FRAUD_ID"
 update_env "VITE_ASP_FRAUD_CONTRACT_ID" "$ASP_FRAUD_ID"
+update_env "DEDUCTIBLE_TRACKER_CONTRACT_ID" "$TRACKER_ID"
+update_env "VITE_DEDUCTIBLE_TRACKER_CONTRACT_ID" "$TRACKER_ID"
 update_env "CLAIM_ESCROW_CONTRACT_ID" "$ESCROW_ID"
 update_env "VITE_CLAIM_ESCROW_CONTRACT_ID" "$ESCROW_ID"
 update_env "USDC_TOKEN_CONTRACT_ID" "$USDC_TOKEN"
@@ -145,5 +159,6 @@ update_env "VITE_USDC_TOKEN_CONTRACT_ID" "$USDC_TOKEN"
 echo "=== Redeploy ASP + fraud + escrow complete ==="
 echo "  ASP_MEMBER_CONTRACT_ID=$ASP_MEMBER_ID"
 echo "  ASP_FRAUD_CONTRACT_ID=$ASP_FRAUD_ID"
+echo "  DEDUCTIBLE_TRACKER_CONTRACT_ID=$TRACKER_ID"
 echo "  CLAIM_ESCROW_CONTRACT_ID=$ESCROW_ID"
 echo "Restart npm run dev so Vite picks up new contract IDs."

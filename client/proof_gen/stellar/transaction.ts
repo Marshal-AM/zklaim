@@ -1,12 +1,12 @@
 import {
   Address,
+  BASE_FEE,
   Operation,
   TransactionBuilder,
-  BASE_FEE,
   rpc,
   type Transaction,
 } from "@stellar/stellar-sdk";
-import type { Account } from "@stellar/stellar-base";
+import type { Account } from "@stellar/stellar-sdk";
 import type { ProofPackage } from "../inputs.js";
 import { buildClaimPackageOnChain, claimPackageToScVal } from "./encoding.js";
 
@@ -28,6 +28,8 @@ function buildUnsignedClaimTransaction(
   const claimScVal = claimPackageToScVal(claimPkg);
 
   return new TransactionBuilder(account, {
+    // Must be network base fee (100). assembleTransaction adds minResourceFee;
+    // protocol requires tx.fee - baseFee === sorobanData.resourceFee.
     fee: BASE_FEE,
     networkPassphrase: params.networkPassphrase,
   })
@@ -42,7 +44,7 @@ function buildUnsignedClaimTransaction(
         source: params.patientPublicKey,
       }),
     )
-    .setTimeout(60)
+    .setTimeout(30)
     .build();
 }
 

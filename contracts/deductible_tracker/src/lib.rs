@@ -18,19 +18,36 @@ pub enum DataKey {
 #[derive(Clone)]
 pub enum InstanceKey {
     Verifier,
+    Admin,
+    ClaimEscrow,
 }
 
 #[contractimpl]
 impl DeductibleTracker {
-    pub fn init(env: Env, verifier: Address) {
+    pub fn init(env: Env, verifier: Address, admin: Address) {
         env.storage().instance().set(&InstanceKey::Verifier, &verifier);
+        env.storage().instance().set(&InstanceKey::Admin, &admin);
+    }
+
+    /// Called once after claim_escrow is deployed to register it as the sole
+    /// authorised caller of update_accumulator. Requires admin signature.
+    pub fn set_escrow(env: Env, escrow: Address) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&InstanceKey::Admin)
+            .unwrap_or_else(|| panic!("not initialised"));
+        admin.require_auth();
+        env.storage().instance().set(&InstanceKey::ClaimEscrow, &escrow);
     }
 
     pub fn get_accumulator(env: Env, patient: Address) -> BytesN<32> {
-        env.storage()
-            .persistent()
-            .get(&DataKey::Accumulator(patient))
-            .unwrap_or_else(|| zero_field(&env))
+        let key = DataKey::Accumulator(patient);
+        if env.storage().persistent().has(&key) {
+            env.storage().persistent().get(&key).unwrap()
+        } else {
+            zero_field(&env)
+        }
     }
 
     pub fn update_accumulator(
@@ -40,7 +57,16 @@ impl DeductibleTracker {
         proof: Bytes,
         public_inputs: Vec<BytesN<32>>,
     ) -> bool {
-        patient.require_auth();
+        // Only claim_escrow may call this; when invoked cross-contract the
+        // Soroban host satisfies escrow.require_auth() automatically without
+        // adding a patient sub-invocation to the auth tree. This keeps the
+        // transaction envelope under the 132 KB per-tx size limit.
+        let escrow: Address = env
+            .storage()
+            .instance()
+            .get(&InstanceKey::ClaimEscrow)
+            .unwrap_or_else(|| panic!("escrow not set"));
+        escrow.require_auth();
 
         if public_inputs.len() != 5 {
             panic!("invalid accumulator public inputs");

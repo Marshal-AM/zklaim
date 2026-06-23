@@ -21,6 +21,7 @@ import {
 import { useProviderStore } from "../store/providerStore";
 import { useWalletStore } from "../store/wallet";
 import { env } from "../config/env";
+import { normalizeStellarAddress } from "../lib/stellarAddress";
 import {
   DEMO_DEFAULT_AMOUNT_USD,
   DEMO_POLICY_CEILING_CENTS,
@@ -62,8 +63,9 @@ export function NewClaimForm() {
   }, []);
 
   async function resolvePatientBoxKey(): Promise<string> {
+    const stellar = normalizeStellarAddress(patientAddress);
     if (supabaseEnabled) {
-      const key = await lookupBoxPublicKey(patientAddress.trim());
+      const key = await lookupBoxPublicKey(stellar);
       if (!key) {
         throw new Error(
           "Patient not registered in ZKlaim directory. Ask them to complete patient onboarding first.",
@@ -88,6 +90,7 @@ export function NewClaimForm() {
       }
 
       const boxKey = await resolvePatientBoxKey();
+      const patientStellar = normalizeStellarAddress(patientAddress);
       const nonce = randomFieldHex();
       const blinding = randomFieldHex();
       const amountCents = Math.round(parseFloat(amount) * 100);
@@ -105,7 +108,7 @@ export function NewClaimForm() {
 
       const base: Omit<ClaimTokenPayload, "doctor_signature"> = {
         version: 1,
-        patientAddress: patientAddress.trim(),
+        patientAddress: patientStellar,
         icd_code: icdCode,
         amount_cents: amountCents,
         visit_date: visitNum,
@@ -139,7 +142,7 @@ export function NewClaimForm() {
       let supabaseDelivered = false;
       if (supabaseEnabled) {
         await insertClaimDelivery({
-          patientAddress: patientAddress.trim(),
+          patientAddress: patientStellar,
           doctorAddress,
           token: encrypted,
           claimNonce: nonce,
@@ -157,7 +160,7 @@ export function NewClaimForm() {
       const entry = {
         claim_hash: claimHash.toString(16),
         date: new Date().toISOString(),
-        patientAddress: patientAddress.trim(),
+        patientAddress: patientStellar,
       };
       addHistory(entry);
       const hist = await loadProviderHistory();

@@ -35,6 +35,7 @@
     "test:app": "npm run test -w @zklaim/app",
     "test:proof-gen": "npm run test -w @zklaim/proof-gen",
     "submit:demo-claim": "wsl bash -lc 'cd /mnt/c/Users/MSI/Desktop/zklaim && npx tsx scripts/submit_demo_claim.ts'",
+    "diagnose:soroban": "npx tsx scripts/diagnose_soroban_footprint.ts",
     "fund:usdc": "wsl bash ./scripts/fund_usdc.sh",
     "redeploy:escrow-usdc": "wsl bash ./scripts/redeploy_escrow_circle_usdc.sh"
   },

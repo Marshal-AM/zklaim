@@ -15,9 +15,9 @@ export {
 export {
   generateClaimProofs,
   buildClaimPackage,
-  loadDemoClaimData,
   PROOF_BYTES,
 } from "../proof_gen/index.js";
+export { loadDemoClaimData } from "../proof_gen/demo.js";
 export type {
   ClaimData,
   ClaimPackageOnChain,
