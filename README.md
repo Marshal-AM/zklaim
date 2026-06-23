@@ -86,6 +86,26 @@ Contract IDs are written to `.env`. If `USDC_TOKEN_CONTRACT_ID` is unset, `deplo
 
 **Prover alignment:** use **bb 0.87.0** with `--oracle_hash keccak` (matches the on-chain Fiat–Shamir transcript). Noir stays at **1.0.0-beta.3**. After changing circuits, run `bash scripts/test_circuits.sh` then `bash scripts/init_vks.sh` to refresh on-chain VKs.
 
+## Phase 5 — Client-side proof engine (WSL)
+
+Browser/Node proof orchestrator in `client/proof_gen/` and Soroban tx builder in `client/stellar_tx/`:
+
+```bash
+# Prerequisites: Phase 3 circuits + trees
+npm run build:trees
+npm run build:circuits          # copies ACIR JSON to client/wasm/
+
+# Prove demo claim (Node, ~60–120s)
+npm run test:proof-gen
+
+# Optional: build tx + simulate/submit (needs .env + PATIENT_SECRET_KEY)
+npx tsx scripts/submit_demo_claim.ts --simulate-only
+```
+
+**Browser proving:** Vite dev server sets COOP/COEP headers for `@aztec/bb.js` threading. Import `@zklaim/proof-gen` from the app.
+
+**Accumulator genesis:** first claim uses on-chain `zero_field`; `deductible_tracker` skips prev-commit mismatch at genesis. Redeploy tracker after pulling Phase 5 contract fix if using an older testnet deploy.
+
 ## Stellar testnet
 
 ```powershell

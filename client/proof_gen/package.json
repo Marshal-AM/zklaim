@@ -6,9 +6,23 @@
   "main": "./index.ts",
   "exports": {
     ".": "./index.ts",
-    "./lib/*": "./lib/*"
+    "./stellar/transaction": "./stellar/transaction.ts",
+    "./stellar/submit": "./stellar/submit.ts",
+    "./stellar/encoding": "./stellar/encoding.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aztec/bb.js": "0.87.0",
+    "@noir-lang/noir_js": "1.0.0-beta.3",
+    "@stellar/stellar-sdk": "^13.0.0",
     "@zklaim/scripts": "file:../../scripts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
   }
 }

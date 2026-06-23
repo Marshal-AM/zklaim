@@ -7,7 +7,8 @@
     "app",
     "scripts",
     "tests",
-    "client/proof_gen"
+    "client/proof_gen",
+    "client/stellar_tx"
   ],
   "scripts": {
     "install:toolchain": "wsl bash ./scripts/install_toolchain_wsl.sh",
@@ -26,7 +27,9 @@
     "export:vks": "wsl bash ./scripts/export_vks.sh",
     "init:vks": "wsl bash ./scripts/init_vks.sh",
     "export:proof-fixtures": "npm run generate:circuit-vectors -w scripts && bash scripts/test_circuits.sh && tsx scripts/export_proof_fixtures.ts",
-    "dev": "npm run dev -w app"
+    "dev": "npm run dev -w app",
+    "test:proof-gen": "npm run test -w @zklaim/proof-gen",
+    "submit:demo-claim": "wsl bash -lc 'cd /mnt/c/Users/MSI/Desktop/zklaim && npx tsx scripts/submit_demo_claim.ts'"
   },
   "engines": {
     "node": ">=20"

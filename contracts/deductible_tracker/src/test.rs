@@ -18,3 +18,11 @@ fn test_deductible_crossing() {
     let zero = zklaim_common::zero_field(&env);
     assert_eq!(client.get_accumulator(&patient), zero);
 }
+
+#[test]
+fn test_genesis_zero_field() {
+    let env = Env::default();
+    let zero = zklaim_common::zero_field(&env);
+    let genesis = BytesN::from_array(&env, &[0u8; 32]);
+    assert_eq!(zero, genesis);
+}

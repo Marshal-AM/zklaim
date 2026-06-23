@@ -53,7 +53,8 @@ impl DeductibleTracker {
         let deductible_met = public_inputs.get(3).unwrap();
         let _claim_hash = public_inputs.get(4).unwrap();
 
-        if prev_commit != stored_prev {
+        let genesis = stored_prev == zero_field(&env);
+        if !genesis && prev_commit != stored_prev {
             panic!("previous accumulator mismatch");
         }
         if new_commit != new_commitment {

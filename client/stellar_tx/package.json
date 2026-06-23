@@ -1,0 +1,13 @@
+{
+  "name": "@zklaim/stellar-tx",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "dependencies": {
+    "@zklaim/proof-gen": "file:../proof_gen"
+  }
+}

@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/admin/adminpage.tsx","./src/patient/patientpage.tsx","./src/provider/providerpage.tsx","./src/store/wallet.ts"],"version":"5.9.3"}
+{"root":["./src/App.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/admin/AdminPage.tsx","./src/patient/PatientPage.tsx","./src/provider/ProviderPage.tsx","./src/store/wallet.ts"],"version":"5.9.3"}
