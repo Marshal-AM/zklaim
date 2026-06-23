@@ -1,7 +1,6 @@
 import {
   computeClaimHash,
   computeNullifier,
-  fieldToBytesBE,
   icdToField,
   initPoseidon2,
   poseidon2HashFixed,
@@ -14,6 +13,8 @@ import type {
   CircuitProofResult,
   GenerateClaimProofsOptions,
   ProofPackage,
+  ProofProgressIndex,
+  ProofProgressStage,
   WorkerProveMessage,
   WorkerResponse,
 } from "./inputs.js";
@@ -22,7 +23,14 @@ import { resolveFraudProof } from "./fraud.js";
 import { buildClaimPackageOnChain } from "./stellar/encoding.js";
 import { runProveJob } from "./workers/prove_shared.js";
 
-export { loadDemoClaimData } from "./demo.js";
+export {
+  hydrateClaimData,
+  type HydrateClaimParams,
+  type PolicyTreeArtifact,
+  type AspTreeArtifact,
+} from "./hydrate.js";
+export { setCircuitLoader } from "./circuits.js";
+export { setFraudTreeJson } from "./fraud.js";
 export { PROOF_BYTES } from "./inputs.js";
 export type {
   ClaimData,
@@ -30,8 +38,15 @@ export type {
   CircuitProofResult,
   ProofPackage,
   GenerateClaimProofsOptions,
+  ProofProgressStage,
+  ProofProgressIndex,
+  CircuitName,
 } from "./inputs.js";
-export { buildClaimTransaction } from "./stellar/transaction.js";
+export {
+  buildClaimTransaction,
+  createClaimTransactionPreparer,
+  createUnsignedClaimPreparer,
+} from "./stellar/transaction.js";
 export { submitClaim } from "./stellar/submit.js";
 export { claimPackageToScVal, buildClaimPackageOnChain } from "./stellar/encoding.js";
 
@@ -77,11 +92,24 @@ async function proveWithMode(
   return runProveJob(circuit, inputs);
 }
 
+function trackProgress<T>(
+  stage: ProofProgressStage,
+  index: ProofProgressIndex,
+  onProgress: GenerateClaimProofsOptions["onProgress"],
+  promise: Promise<T>,
+): Promise<T> {
+  return promise.then((result) => {
+    onProgress?.(stage, index);
+    return result;
+  });
+}
+
 export async function generateClaimProofs(
   claim: ClaimData,
   options: GenerateClaimProofsOptions = {},
 ): Promise<ProofPackage> {
   const useWorkers = options.useWorkers ?? true;
+  const onProgress = options.onProgress;
   await initPoseidon2();
 
   const claim_hash = await computeClaimHash({
@@ -138,9 +166,24 @@ export async function generateClaimProofs(
   };
 
   const [policyResult, amountResult, doctorResult] = await Promise.all([
-    proveWithMode("policy_validity", policyInputs, useWorkers),
-    proveWithMode("amount_range", amountInputs, useWorkers),
-    proveWithMode("doctor_attestation", doctorInputs, useWorkers),
+    trackProgress(
+      "policy",
+      1,
+      onProgress,
+      proveWithMode("policy_validity", policyInputs, useWorkers),
+    ),
+    trackProgress(
+      "amount",
+      2,
+      onProgress,
+      proveWithMode("amount_range", amountInputs, useWorkers),
+    ),
+    trackProgress(
+      "doctor",
+      3,
+      onProgress,
+      proveWithMode("doctor_attestation", doctorInputs, useWorkers),
+    ),
   ]);
 
   const accumInputs = {
@@ -155,10 +198,11 @@ export async function generateClaimProofs(
     claim_hash,
   };
 
-  const accumResult = await proveWithMode(
-    "deductible_accumulator",
-    accumInputs,
-    useWorkers,
+  const accumResult = await trackProgress(
+    "accum",
+    4,
+    onProgress,
+    proveWithMode("deductible_accumulator", accumInputs, useWorkers),
   );
 
   const nullifier = await computeNullifier({
@@ -167,8 +211,9 @@ export async function generateClaimProofs(
     diagnosisSecret: claim.diagnosis_secret,
     randomNonce: claim.random_nonce,
   });
+  onProgress?.("nullifier", 5);
 
-  const fraud = await resolveFraudProof(claim);
+  const fraud = await resolveFraudProof(claim, options.fraudTreeJson);
 
   return {
     policyResult,

@@ -102,9 +102,41 @@ npm run test:proof-gen
 npx tsx scripts/submit_demo_claim.ts --simulate-only
 ```
 
-**Browser proving:** Vite dev server sets COOP/COEP headers for `@aztec/bb.js` threading. Import `@zklaim/proof-gen` from the app.
+## Phase 6 — Frontend application
 
-**Accumulator genesis:** first claim uses on-chain `zero_field`; `deductible_tracker` skips prev-commit mismatch at genesis. Redeploy tracker after pulling Phase 5 contract fix if using an older testnet deploy.
+Patient, provider, and admin portals in `app/`:
+
+```bash
+npm install
+npm run sync:app-assets   # copy trees + circuit WASM to app/public/
+npm run dev               # http://localhost:5173 (COOP/COEP for bb.js workers)
+```
+
+**Flow:** Provider connects Freighter → looks up patient by Stellar address (Supabase) → encrypts claim → delivers to patient inbox → Patient decrypts locally → 4-circuit proof progress → Freighter signs `submit_claim` → USDC settlement receipt. QR/deep link remains a fallback.
+
+Requires Freighter on **testnet**, `.env` with `VITE_*` contract IDs (see `.env.example`), and `npm run build:circuits` for WASM assets.
+
+### Supabase (optional — patient directory + encrypted inbox)
+
+Supabase stores **only** Stellar addresses, box **public** keys, and **encrypted** claim tokens. No medical plaintext, no secret keys.
+
+1. Create a Supabase project and run [`supabase/migrations/001_zklaim_coordination.sql`](supabase/migrations/001_zklaim_coordination.sql) in the SQL Editor.
+2. In Project Settings → API, copy the URL and `anon` key into `.env`:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+3. Ensure **Realtime** is enabled for `claim_deliveries` (included in the migration).
+
+**With Supabase:** Patient onboarding registers their public key; doctors enter only the patient Stellar address; claims appear in the patient inbox automatically. **Providers** register their own Freighter wallet on the Provider tab (links to demo MD-001 ASP credential).
+
+**Without Supabase:** Doctors paste the patient's public encryption key manually; claims arrive via QR/deep link only. Use deployer wallet as provider or edit `physicians.json`.
+
+Run both SQL migrations: `001_zklaim_coordination.sql` and `002_provider_profiles.sql`.
+
+```bash
+npm run test:app
+npm run build:app
+```
+
 
 ## Stellar testnet
 

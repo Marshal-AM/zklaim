@@ -2,13 +2,14 @@ import { Link, Route, Routes } from "react-router-dom";
 import { AdminPage } from "./admin/AdminPage";
 import { PatientPage } from "./patient/PatientPage";
 import { ProviderPage } from "./provider/ProviderPage";
+import { WalletButton } from "./components/WalletButton";
 
 export default function App() {
   return (
     <div className="min-h-screen">
       <header className="border-b border-slate-800 px-6 py-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold tracking-tight">ZKlaim</h1>
-        <nav className="flex gap-4 text-sm text-slate-400">
+        <nav className="flex items-center gap-6 text-sm text-slate-400">
           <Link to="/" className="hover:text-white">
             Patient
           </Link>
@@ -18,6 +19,7 @@ export default function App() {
           <Link to="/admin" className="hover:text-white">
             Admin
           </Link>
+          <WalletButton />
         </nav>
       </header>
       <main className="p-6">

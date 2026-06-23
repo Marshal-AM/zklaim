@@ -1,5 +1,5 @@
 import { SPARSE_MERKLE_DEPTH, ZERO_FIELD } from "./constants.js";
-import { fieldToHex, modField } from "./field.js";
+import { fieldToBytesBE, fieldToHex, bytesBEToField } from "./field.js";
 import { initPoseidon2, poseidon2HashFixed } from "./poseidon2.js";
 
 export interface SparseNonMembershipProof {
@@ -9,8 +9,10 @@ export interface SparseNonMembershipProof {
   pathIndices: number[];
 }
 
+/** Matches contracts/asp_nonmembership sparse_merkle.rs */
 export class SparseMerkleTree {
   private leafMap = new Map<number, bigint>();
+  private nodeCache = new Map<string, bigint>();
   private defaults: bigint[] = [];
   private root: bigint = ZERO_FIELD;
 
@@ -21,49 +23,63 @@ export class SparseMerkleTree {
     this.defaults = new Array(this.depth + 1);
     this.defaults[this.depth] = ZERO_FIELD;
     for (let d = this.depth - 1; d >= 0; d--) {
-      const child = this.defaults[d + 1];
+      const child = this.defaults[d + 1]!;
       this.defaults[d] = await poseidon2HashFixed([child, child]);
     }
-    this.root = this.defaults[0];
+    this.root = this.defaults[0]!;
   }
 
   getDepth(): number {
     return this.depth;
   }
 
+  /** Last 4 bytes BE masked — same as sparse_merkle::key_to_index */
   private keyToIndex(key: bigint): number {
-    return Number(modField(key) % (1n << BigInt(this.depth)));
+    const bytes = fieldToBytesBE(key);
+    const low =
+      (bytes[28]! << 24) |
+      (bytes[29]! << 16) |
+      (bytes[30]! << 8) |
+      bytes[31]!;
+    return low & ((1 << this.depth) - 1);
   }
 
-  private hasLeafInSubtree(level: number, index: number): boolean {
-    const shift = this.depth - level;
-    const start = index << shift;
-    const end = start + (1 << shift);
-    for (const leafIndex of this.leafMap.keys()) {
-      if (leafIndex >= start && leafIndex < end) {
-        return true;
-      }
-    }
-    return false;
+  /** poseidon2_hash_2(pattern, poseidon2_hash_1([1u8; 32])) — Rust [1u8; 32] is 32 bytes of 1 */
+  private async patternLeaf(key: bigint): Promise<bigint> {
+    const oneBytes = new Uint8Array(32).fill(1);
+    const hashedOne = await poseidon2HashFixed([bytesBEToField(oneBytes)]);
+    return poseidon2HashFixed([key, hashedOne]);
   }
 
-  private async getNode(level: number, index: number): Promise<bigint> {
+  private async hashAtLevel(level: number, index: number): Promise<bigint> {
     if (level === this.depth) {
-      return this.leafMap.get(index) ?? this.defaults[this.depth];
+      return this.leafMap.get(index) ?? this.defaults[this.depth]!;
     }
-    if (!this.hasLeafInSubtree(level, index)) {
-      return this.defaults[level];
+    const cached = this.nodeCache.get(`${level}-${index}`);
+    if (cached !== undefined) {
+      return cached;
     }
-    const left = await this.getNode(level + 1, index * 2);
-    const right = await this.getNode(level + 1, index * 2 + 1);
-    return poseidon2HashFixed([left, right]);
+    return this.defaults[level]!;
   }
 
-  async insert(key: bigint, value: bigint = 1n): Promise<void> {
-    const leafHash = await poseidon2HashFixed([key, value]);
+  async insert(key: bigint): Promise<void> {
+    const leaf = await this.patternLeaf(key);
     const index = this.keyToIndex(key);
-    this.leafMap.set(index, leafHash);
-    this.root = await this.getNode(0, 0);
+    this.leafMap.set(index, leaf);
+
+    let node = leaf;
+    let idx = index;
+    for (let level = this.depth; level >= 1; level--) {
+      const siblingIndex = idx ^ 1;
+      const sibling = await this.hashAtLevel(level, siblingIndex);
+      node =
+        (idx & 1) === 1
+          ? await poseidon2HashFixed([sibling, node])
+          : await poseidon2HashFixed([node, sibling]);
+      idx >>= 1;
+      this.nodeCache.set(`${level - 1}-${idx}`, node);
+    }
+    this.root = node;
   }
 
   has(key: bigint): boolean {
@@ -83,10 +99,10 @@ export class SparseMerkleTree {
     const path: bigint[] = [];
     const pathIndices: number[] = [];
 
-    for (let level = this.depth; level > 0; level--) {
+    for (let level = this.depth; level >= 1; level--) {
       const posAtLevel = index >> (this.depth - level);
       const siblingPos = posAtLevel ^ 1;
-      path.push(await this.getNode(level, siblingPos));
+      path.push(await this.hashAtLevel(level, siblingPos));
       pathIndices.push(posAtLevel & 1);
     }
 
@@ -103,11 +119,11 @@ export class SparseMerkleTree {
       return false;
     }
 
-    let current = this.defaults[this.depth];
+    let current = this.defaults[this.depth]!;
 
     for (let i = 0; i < proof.path.length; i++) {
-      const sibling = proof.path[i];
-      const isRight = proof.pathIndices[i];
+      const sibling = proof.path[i]!;
+      const isRight = proof.pathIndices[i]!;
       current =
         isRight === 1
           ? await poseidon2HashFixed([sibling, current])

@@ -1,18 +1,39 @@
-import { readFileSync, existsSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { Noir } from "@noir-lang/noir_js";
 import type { CompiledCircuit, InputMap } from "@noir-lang/types";
+import { Noir } from "@noir-lang/noir_js";
 import { UltraHonkBackend } from "@aztec/bb.js";
 import { fieldFromHex, fieldToBytesBE, fieldToHex } from "@zklaim/scripts";
 import type { CircuitName, CircuitProofResult } from "./inputs.js";
 import { PROOF_BYTES } from "./inputs.js";
 import { boolToField } from "./accumulator.js";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const WASM_DIR = join(__dirname, "..", "wasm");
+import { isNodeRuntime } from "./runtime.js";
 
 const circuitCache = new Map<CircuitName, CompiledCircuit>();
+let circuitLoader: ((name: CircuitName) => Promise<CompiledCircuit>) | null =
+  null;
+
+export function setCircuitLoader(
+  loader: (name: CircuitName) => Promise<CompiledCircuit>,
+): void {
+  circuitLoader = loader;
+}
+
+export async function loadCircuit(name: CircuitName): Promise<CompiledCircuit> {
+  const cached = circuitCache.get(name);
+  if (cached) return cached;
+
+  let circuit: CompiledCircuit;
+  if (circuitLoader) {
+    circuit = await circuitLoader(name);
+  } else if (isNodeRuntime()) {
+    const { loadCircuitFromFs } = await import("./circuits_node.js");
+    circuit = loadCircuitFromFs(name);
+  } else {
+    const { loadCircuitFromFetch } = await import("./browserArtifacts.js");
+    circuit = await loadCircuitFromFetch(name);
+  }
+  circuitCache.set(name, circuit);
+  return circuit;
+}
 
 export function fieldToNoirInput(value: bigint): string {
   return fieldToHex(value);
@@ -30,34 +51,14 @@ export function parsePublicInput(value: string): bigint {
   return fieldFromHex(`0x${BigInt(trimmed).toString(16)}`);
 }
 
-export function loadCircuit(name: CircuitName): CompiledCircuit {
-  const cached = circuitCache.get(name);
-  if (cached) return cached;
-
-  const path = join(WASM_DIR, `${name}.json`);
-  if (!existsSync(path)) {
-    throw new Error(
-      `Missing ${path} — run npm run build:circuits in WSL first`,
-    );
-  }
-  const circuit = JSON.parse(readFileSync(path, "utf8")) as CompiledCircuit;
-  if (!circuit.noir_version?.startsWith("1.0.0-beta.3")) {
-    throw new Error(
-      `Unexpected noir_version for ${name}: ${circuit.noir_version}`,
-    );
-  }
-  circuitCache.set(name, circuit);
-  return circuit;
-}
-
 export async function proveCircuit(
   name: CircuitName,
-  inputs: InputMap,
+  inputs: Record<string, unknown>,
 ): Promise<CircuitProofResult> {
-  const circuit = loadCircuit(name);
+  const circuit = await loadCircuit(name);
   const noir = new Noir(circuit);
   await noir.init();
-  const { witness } = await noir.execute(inputs);
+  const { witness } = await noir.execute(inputs as InputMap);
 
   const backend = new UltraHonkBackend(circuit.bytecode, { threads: 1 });
   try {

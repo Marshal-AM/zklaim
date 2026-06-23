@@ -93,8 +93,29 @@ export type CircuitName =
   | "doctor_attestation"
   | "deductible_accumulator";
 
+export type ProofProgressStage =
+  | "policy"
+  | "amount"
+  | "doctor"
+  | "accum"
+  | "nullifier";
+
+export type ProofProgressIndex = 1 | 2 | 3 | 4 | 5;
+
 export interface GenerateClaimProofsOptions {
   useWorkers?: boolean;
+  onProgress?: (stage: ProofProgressStage, index: ProofProgressIndex) => void;
+  fraudTreeJson?: FraudTreeArtifact;
+}
+
+export interface FraudTreeArtifact {
+  clean_pattern: {
+    billing_pattern_hash: string;
+    non_membership_proof: {
+      path: string[];
+      path_indices: number[];
+    };
+  };
 }
 
 export interface WorkerProveMessage {

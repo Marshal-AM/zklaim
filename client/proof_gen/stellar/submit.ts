@@ -1,9 +1,10 @@
 import { rpc, type Transaction } from "@stellar/stellar-sdk";
+import { decodeSubmitErrorXdr } from "./errors.js";
 
 export interface SubmitClaimParams {
-  tx: Transaction;
   rpcUrl: string;
-  signTransaction: (tx: Transaction) => Promise<Transaction>;
+  /** Build unsigned → simulate once → Freighter sign → return signed tx. */
+  signTransaction: () => Promise<Transaction>;
   pollIntervalMs?: number;
   maxAttempts?: number;
 }
@@ -18,13 +19,12 @@ export async function submitClaim(
   params: SubmitClaimParams,
 ): Promise<SubmitClaimResult> {
   const server = new rpc.Server(params.rpcUrl);
-  const signed = await params.signTransaction(params.tx);
+  const signed = await params.signTransaction();
   const sent = await server.sendTransaction(signed);
 
   if (sent.status === "ERROR") {
-    throw new Error(
-      `sendTransaction failed: ${sent.errorResult?.toXDR("base64") ?? "unknown"}`,
-    );
+    const detail = decodeSubmitErrorXdr(sent.errorResult?.toXDR("base64"));
+    throw new Error(`sendTransaction failed: ${detail}`);
   }
 
   const hash = sent.hash;

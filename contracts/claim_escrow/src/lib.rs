@@ -60,7 +60,6 @@ impl ClaimEscrow {
         let policy = escrow::get_instance_address(&env, InstanceKey::Policy);
         let tracker = escrow::get_instance_address(&env, InstanceKey::Tracker);
         let usdc = escrow::get_instance_address(&env, InstanceKey::UsdcToken);
-        let insurer = escrow::get_instance_address(&env, InstanceKey::InsurerEscrow);
 
         Self::verify_circuit(
             &env,
@@ -159,7 +158,7 @@ impl ClaimEscrow {
         let payout = escrow::compute_payout(&env, pkg.payout_amount, deductible_met);
 
         nullifier::mark_spent(&env, &pkg.nullifier);
-        escrow::transfer_usdc(&env, &usdc, &insurer, &patient, payout);
+        escrow::transfer_usdc(&env, &usdc, &patient, payout);
 
         env.events().publish(
             (symbol_short!("claim"),),

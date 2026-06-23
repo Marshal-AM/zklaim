@@ -239,9 +239,13 @@ export async function buildFraudTreeArtifact() {
     });
   }
 
+  const demo = JSON.parse(readFileSync(join(SEED, "demo_claim.json"), "utf8"));
+  const floor = demo.demo_a.policy_floor_cents;
+  const ceiling = demo.demo_a.policy_ceiling_cents;
+
   const cleanPattern = await billingPatternHash(
     icdCategoryToField("J18.9"),
-    amountBucketToField(10000, 200000),
+    amountBucketToField(floor, ceiling),
     providerPatternToField("LICENSED"),
   );
   const cleanProof = await tree.getNonMembershipProof(cleanPattern);

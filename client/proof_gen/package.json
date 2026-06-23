@@ -6,6 +6,8 @@
   "main": "./index.ts",
   "exports": {
     ".": "./index.ts",
+    "./browserArtifacts": "./browserArtifacts.ts",
+    "./inputs.js": "./inputs.ts",
     "./stellar/transaction": "./stellar/transaction.ts",
     "./stellar/submit": "./stellar/submit.ts",
     "./stellar/encoding": "./stellar/encoding.ts"

@@ -9,7 +9,7 @@ import type { ClaimPackageOnChain, ProofPackage } from "../inputs.js";
 import { encodePublicInputs } from "../circuits.js";
 
 function bytesScVal(bytes: Uint8Array): xdr.ScVal {
-  return xdr.ScVal.scvBytes(Buffer.from(bytes));
+  return xdr.ScVal.scvBytes(bytes);
 }
 
 function bytesVecScVal(items: Uint8Array[]): xdr.ScVal {
@@ -48,27 +48,28 @@ export function buildClaimPackageOnChain(pkg: ProofPackage): ClaimPackageOnChain
 
 export function claimPackageToScVal(pkg: ClaimPackageOnChain): xdr.ScVal {
   const insurerAddr = new Address(pkg.insurer);
+  // Soroban ScMap keys must be lexicographically sorted by symbol name.
   return xdr.ScVal.scvMap([
-    mapEntry("policy_proof", bytesScVal(pkg.policy_proof)),
-    mapEntry("policy_inputs", bytesVecScVal(pkg.policy_inputs)),
-    mapEntry("amount_proof", bytesScVal(pkg.amount_proof)),
-    mapEntry("amount_inputs", bytesVecScVal(pkg.amount_inputs)),
-    mapEntry("doctor_proof", bytesScVal(pkg.doctor_proof)),
-    mapEntry("doctor_inputs", bytesVecScVal(pkg.doctor_inputs)),
-    mapEntry("accum_proof", bytesScVal(pkg.accum_proof)),
     mapEntry("accum_inputs", bytesVecScVal(pkg.accum_inputs)),
+    mapEntry("accum_proof", bytesScVal(pkg.accum_proof)),
+    mapEntry("amount_inputs", bytesVecScVal(pkg.amount_inputs)),
+    mapEntry("amount_proof", bytesScVal(pkg.amount_proof)),
+    mapEntry("billing_pattern_hash", bytesScVal(pkg.billing_pattern_hash)),
+    mapEntry("doctor_inputs", bytesVecScVal(pkg.doctor_inputs)),
+    mapEntry("doctor_proof", bytesScVal(pkg.doctor_proof)),
     mapEntry(
       "fraud_non_membership_proof",
       bytesVecScVal(pkg.fraud_non_membership_proof),
     ),
     mapEntry("fraud_path_indices", u32VecScVal(pkg.fraud_path_indices)),
-    mapEntry("nullifier", bytesScVal(pkg.nullifier)),
-    mapEntry("billing_pattern_hash", bytesScVal(pkg.billing_pattern_hash)),
     mapEntry("insurer", insurerAddr.toScVal()),
+    mapEntry("nullifier", bytesScVal(pkg.nullifier)),
     mapEntry(
       "payout_amount",
       nativeToScVal(pkg.payout_amount, { type: "i128" }),
     ),
+    mapEntry("policy_inputs", bytesVecScVal(pkg.policy_inputs)),
+    mapEntry("policy_proof", bytesScVal(pkg.policy_proof)),
   ]);
 }
 

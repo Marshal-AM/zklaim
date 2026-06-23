@@ -46,7 +46,7 @@ fn test_usdc_settlement() {
     let token_admin = Address::generate(&env);
     let sac = env.register_stellar_asset_contract_v2(token_admin.clone());
     let token_client = token::StellarAssetClient::new(&env, &sac.address());
-    token_client.mint(&insurer, &1_000_000i128);
+    token_client.mint(&insurer, &100_000_000i128);
 
     let contract_id = env.register(ClaimEscrow, ());
     let client = ClaimEscrowClient::new(&env, &contract_id);
@@ -62,13 +62,17 @@ fn test_usdc_settlement() {
         &2000u32,
     );
 
-    let payout = client.preview_payout(&100_000, &true);
-    assert_eq!(payout, 100_000);
-    let reduced = client.preview_payout(&100_000, &false);
-    assert_eq!(reduced, 80_000);
+    let payout = client.preview_payout(&100, &true);
+    assert_eq!(payout, 100);
+    let reduced = client.preview_payout(&100, &false);
+    assert_eq!(reduced, 80);
 
-    token::Client::new(&env, &sac.address()).transfer(&insurer, &patient, &payout);
+    let escrow = contract_id.clone();
+    token::Client::new(&env, &sac.address()).transfer(&insurer, &escrow, &10_000_000i128);
+    env.as_contract(&contract_id, || {
+        crate::escrow::transfer_usdc(&env, &sac.address(), &patient, payout);
+    });
 
     let balance = token::Client::new(&env, &sac.address()).balance(&patient);
-    assert_eq!(balance, payout);
+    assert_eq!(balance, crate::escrow::cents_to_stroops(payout));
 }

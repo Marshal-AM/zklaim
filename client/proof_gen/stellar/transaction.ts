@@ -4,8 +4,9 @@ import {
   TransactionBuilder,
   BASE_FEE,
   rpc,
+  type Transaction,
 } from "@stellar/stellar-sdk";
-import { assembleTransaction } from "@stellar/stellar-sdk/rpc";
+import type { Account } from "@stellar/stellar-base";
 import type { ProofPackage } from "../inputs.js";
 import { buildClaimPackageOnChain, claimPackageToScVal } from "./encoding.js";
 
@@ -17,15 +18,16 @@ export interface BuildClaimTransactionParams {
   networkPassphrase: string;
 }
 
-export async function buildClaimTransaction(
+export type ClaimTransactionPreparer = () => Promise<Transaction>;
+
+function buildUnsignedClaimTransaction(
+  account: Account,
   params: BuildClaimTransactionParams,
-) {
-  const server = new rpc.Server(params.rpcUrl);
-  const account = await server.getAccount(params.patientPublicKey);
+): Transaction {
   const claimPkg = buildClaimPackageOnChain(params.proofPackage);
   const claimScVal = claimPackageToScVal(claimPkg);
 
-  const tx = new TransactionBuilder(account, {
+  return new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: params.networkPassphrase,
   })
@@ -37,17 +39,45 @@ export async function buildClaimTransaction(
           new Address(params.patientPublicKey).toScVal(),
           claimScVal,
         ],
+        source: params.patientPublicKey,
       }),
     )
-    .setTimeout(300)
+    .setTimeout(60)
     .build();
+}
 
-  const simulated = await server.simulateTransaction(tx);
-  if (rpc.Api.isSimulationError(simulated)) {
-    throw new Error(
-      `Simulation failed: ${JSON.stringify(simulated.error ?? simulated)}`,
-    );
-  }
+export async function prepareClaimTransaction(
+  server: rpc.Server,
+  unsigned: Transaction,
+): Promise<Transaction> {
+  return server.prepareTransaction(unsigned);
+}
 
-  return assembleTransaction(tx, simulated).build();
+/** Fetch fresh sequence + build unsigned invoke (no simulation). */
+export function createUnsignedClaimPreparer(
+  params: BuildClaimTransactionParams,
+): ClaimTransactionPreparer {
+  const server = new rpc.Server(params.rpcUrl);
+  return async () => {
+    const account = await server.getAccount(params.patientPublicKey);
+    return buildUnsignedClaimTransaction(account, params);
+  };
+}
+
+/** @deprecated Use createUnsignedClaimPreparer + prepare in sign step. */
+export function createClaimTransactionPreparer(
+  params: BuildClaimTransactionParams,
+): ClaimTransactionPreparer {
+  const server = new rpc.Server(params.rpcUrl);
+  return async () => {
+    const account = await server.getAccount(params.patientPublicKey);
+    const unsigned = buildUnsignedClaimTransaction(account, params);
+    return prepareClaimTransaction(server, unsigned);
+  };
+}
+
+export async function buildClaimTransaction(
+  params: BuildClaimTransactionParams,
+): Promise<Transaction> {
+  return createClaimTransactionPreparer(params)();
 }

@@ -37,15 +37,20 @@ pub fn compute_payout(env: &Env, payout_amount: i128, deductible_met: bool) -> i
         .unwrap_or_else(|| panic!("underflow"))
 }
 
-pub fn transfer_usdc(
-    env: &Env,
-    token: &Address,
-    from: &Address,
-    to: &Address,
-    amount: i128,
-) {
+/// USDC SAC uses 7 decimals; claim amounts are cents (2 decimals).
+pub fn cents_to_stroops(cents: i128) -> i128 {
+    cents
+        .checked_mul(100_000)
+        .unwrap_or_else(|| panic!("overflow"))
+}
+
+pub fn transfer_usdc(env: &Env, token: &Address, to: &Address, amount_cents: i128) {
+    let amount = cents_to_stroops(amount_cents);
+    if amount <= 0 {
+        return;
+    }
     let client = soroban_sdk::token::Client::new(env, token);
-    client.transfer(from, to, &amount);
+    client.transfer(&env.current_contract_address(), to, &amount);
 }
 
 pub fn get_instance_address(env: &Env, key: InstanceKey) -> Address {
