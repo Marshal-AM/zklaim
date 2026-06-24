@@ -17,17 +17,14 @@ import { getSupabase } from "../lib/supabase";
 import { savePatientInbox } from "../lib/persistence";
 import { usePatientStore } from "../store/patientStore";
 import { ErrorBanner } from "../components/ErrorBanner";
-import { SectionCard } from "../components/ui/SectionCard";
 
 interface ClaimInboxProps {
   patientAddress: string | null;
-  selectedClaimId: string | null;
   onSelectClaim: (claimId: string) => void;
 }
 
 export function ClaimInbox({
   patientAddress,
-  selectedClaimId,
   onSelectClaim,
 }: ClaimInboxProps) {
   const [params, setParams] = useSearchParams();
@@ -174,10 +171,7 @@ export function ClaimInbox({
   );
 
   return (
-    <SectionCard
-      label="Inbox"
-      title="Claim inbox"
-    >
+    <div className="space-y-4">
       {error ? <ErrorBanner message={error} /> : null}
       <div className="flex items-center justify-end gap-2">
         {env.isSupabaseEnabled() ? (
@@ -190,8 +184,8 @@ export function ClaimInbox({
             {syncing ? "Syncing…" : "Refresh"}
           </button>
         ) : null}
-        {inboxClaims.length > 1 ? (
-          <span className="text-xs text-subtle">Tap a claim to select it</span>
+        {inboxClaims.length > 0 ? (
+          <span className="text-xs text-subtle">Open a claim to submit</span>
         ) : null}
       </div>
       {env.isSupabaseEnabled() && identity && !patientAddress ? (
@@ -209,7 +203,6 @@ export function ClaimInbox({
       ) : (
         <ul className="space-y-2">
           {inboxClaims.map((claim) => {
-            const selected = claim.id === selectedClaimId;
             const summary = identity
               ? summarizeInboxClaim(claim, identity.box_secret_key)
               : null;
@@ -220,13 +213,7 @@ export function ClaimInbox({
                 <button
                   type="button"
                   onClick={() => onSelectClaim(claim.id)}
-                  className={`surface-row w-full px-4 py-3 text-left transition-fluid hover:scale-[1.01] ${
-                    selected
-                      ? failed
-                        ? "border-[color-mix(in_oklch,oklch(0.72_0.12_55)_50%,transparent)] bg-[color-mix(in_oklch,oklch(0.72_0.12_55)_10%,transparent)] ring-1 ring-[color-mix(in_oklch,oklch(0.72_0.12_55)_35%,transparent)]"
-                        : "border-primary/50 bg-primary/10 ring-1 ring-primary/25"
-                      : ""
-                  }`}
+                  className="surface-row w-full px-4 py-3 text-left transition-fluid hover:scale-[1.01] hover:border-primary/35 hover:bg-primary/5"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-[650] text-foreground">
@@ -234,11 +221,9 @@ export function ClaimInbox({
                         ? `${summary.amount_label} · ${summary.icd_code} · ${summary.doctor_license_id}`
                         : "Encrypted claim"}
                     </p>
-                    {selected ? (
-                      <span className={failed ? "badge-warning" : "badge-primary"}>
-                        Selected
-                      </span>
-                    ) : null}
+                    <span className={failed ? "badge-warning" : "badge-primary"}>
+                      {failed ? "Retry" : "Open"}
+                    </span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {summary
@@ -257,6 +242,6 @@ export function ClaimInbox({
           })}
         </ul>
       )}
-    </SectionCard>
+    </div>
   );
 }
