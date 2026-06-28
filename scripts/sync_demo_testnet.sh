@@ -105,7 +105,9 @@ stellar contract invoke --id "$POLICY_ID" --source-account "$IDENTITY" --network
 echo "=== Verifying on-chain bounds hash ==="
 ONCHAIN=$(stellar contract invoke --id "$POLICY_ID" --source-account "$IDENTITY" --network "$NETWORK" \
   -- get_bounds_hash --insurer "$ADMIN" | tr -d '"')
-if [[ "${ONCHAIN,,}" != "0x${BOUNDS,,}" && "${ONCHAIN,,}" != "${BOUNDS,,}" ]]; then
+ONCHAIN_LC="$(echo "$ONCHAIN" | tr '[:upper:]' '[:lower:]' | sed 's/^0x//')"
+BOUNDS_LC="$(echo "$BOUNDS" | tr '[:upper:]' '[:lower:]')"
+if [[ "$ONCHAIN_LC" != "$BOUNDS_LC" && "0x$ONCHAIN_LC" != "0x$BOUNDS_LC" ]]; then
   echo "WARN: on-chain bounds $ONCHAIN != expected 0x$BOUNDS" >&2
   exit 1
 fi

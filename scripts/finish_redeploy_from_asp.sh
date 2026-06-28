@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Fresh asp_membership + asp_nonmembership + deductible_tracker + claim_escrow wire-up.
+# Continue redeploy when asp_membership is already deployed + seeded.
+# Usage: bash scripts/finish_redeploy_from_asp.sh testnet aim-soroban-deployer CA7P26...
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -7,31 +8,20 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "$ROOT/scripts/wsl_env.sh"
 # shellcheck disable=SC1091
 source "$ROOT/scripts/usdc_circle.sh"
-
-NETWORK="${1:-testnet}"
-IDENTITY="${2:-zklaim-deploy}"
-ADMIN_ADDR="$(stellar keys address "$IDENTITY")"
-
-if [[ ! -f "$ROOT/.env" ]]; then
-  echo "Missing .env — run bash scripts/deploy.sh first" >&2
-  exit 1
-fi
 # shellcheck disable=SC1091
 source "$ROOT/.env"
+
+NETWORK="${1:-testnet}"
+IDENTITY="${2:?identity}"
+ASP_MEMBER_ID="${3:?asp_member_contract_id}"
+ADMIN_ADDR="$(stellar keys address "$IDENTITY")"
 
 VERIFIER_ID="${VERIFIER_CONTRACT_ID:?}"
 POLICY_ID="${POLICY_REGISTRY_CONTRACT_ID:?}"
 INSURER="${INSURER_FUND_ADDRESS:-$ADMIN_ADDR}"
-
-ASP_TREE_JSON="$ROOT/scripts/artifacts/asp_tree.json"
+WASM="$ROOT/contracts/target/wasm32v1-none/release"
 FRAUD_TREE_JSON="$ROOT/scripts/artifacts/fraud_tree.json"
-export ASP_TREE_JSON FRAUD_TREE_JSON
-
-EXPECTED_ASP_ROOT=$(node --input-type=module -e "
-import { readFileSync } from 'node:fs';
-const t = JSON.parse(readFileSync(process.env.ASP_TREE_JSON, 'utf8'));
-process.stdout.write(t.root.replace(/^0x/i, '').toLowerCase());
-")
+export FRAUD_TREE_JSON
 
 EXPECTED_FRAUD_ROOT=$(node --input-type=module -e "
 import { readFileSync } from 'node:fs';
@@ -53,12 +43,12 @@ update_env() {
 }
 
 sleep_tx() {
-  echo "  (waiting 30s for ledger propagation…)"
-  sleep 30
+  echo "  (waiting 20s…)"
+  sleep 20
 }
 
 retry_invoke() {
-  local max_attempts=6 attempt=1 log
+  local max_attempts=8 attempt=1 log
   while (( attempt <= max_attempts )); do
     log="$(mktemp)"
     if stellar contract invoke "$@" >"$log" 2>&1; then
@@ -67,10 +57,10 @@ retry_invoke() {
       return 0
     fi
     cat "$log" >&2
-    if grep -qE 'TxBadSeq|Contract not found|transaction submission failed|Resource temporarily unavailable|502|503|504|Bad Gateway' "$log"; then
-      echo "  (retry $attempt/$max_attempts after 15s…)" >&2
+    if grep -qE 'TxBadSeq|Contract not found|transaction submission|502|503|504|timeout|Bad Gateway' "$log"; then
+      echo "  (retry $attempt/$max_attempts after 20s…)" >&2
       rm -f "$log"
-      sleep 15
+      sleep 20
       ((attempt++))
       continue
     fi
@@ -80,57 +70,21 @@ retry_invoke() {
   return 1
 }
 
-echo "=== Building contracts ==="
-cd "$ROOT/contracts"
-unset CARGO_TARGET_DIR
-cargo build --workspace --target wasm32v1-none --release
-WASM="target/wasm32v1-none/release"
-
-echo "=== Deploy asp_membership (fresh tree) ==="
-ASP_MEMBER_ID=$(stellar contract deploy \
-  --wasm "$ROOT/contracts/$WASM/asp_membership.wasm" \
-  --source-account "$IDENTITY" --network "$NETWORK")
-echo "ASP Member deployed: $ASP_MEMBER_ID"
-sleep_tx
-retry_invoke --id "$ASP_MEMBER_ID" --source-account "$IDENTITY" --network "$NETWORK" \
-  --send=yes -- init --admin "$ADMIN_ADDR"
-echo "ASP Member initialized"
-sleep_tx
-
-echo "=== Insert 3 doctor leaves (asp_tree.json order) ==="
-node --input-type=module -e "
-import { readFileSync } from 'node:fs';
-const t = JSON.parse(readFileSync(process.env.ASP_TREE_JSON, 'utf8'));
-for (const d of t.doctors) {
-  console.log(d.leaf.replace(/^0x/, ''));
-}
-" | while read -r leaf; do
-  retry_invoke --id "$ASP_MEMBER_ID" --source-account "$IDENTITY" --network "$NETWORK" \
-    --send=yes -- insert_leaf --admin "$ADMIN_ADDR" --commitment "$leaf"
-  sleep 5
-done
-sleep_tx
-
-ONCHAIN_ROOT=$(stellar contract invoke --id "$ASP_MEMBER_ID" --source-account "$IDENTITY" --network "$NETWORK" \
+echo "=== Finish redeploy from ASP $ASP_MEMBER_ID ==="
+ONCHAIN_ASP=$(stellar contract invoke --id "$ASP_MEMBER_ID" --source-account "$IDENTITY" --network "$NETWORK" \
   -- get_root | tr -d '"' | tr '[:upper:]' '[:lower:]' | sed 's/^0x//')
-if [[ "$ONCHAIN_ROOT" != "$EXPECTED_ASP_ROOT" ]]; then
-  echo "ASP root mismatch: on-chain=$ONCHAIN_ROOT expected=$EXPECTED_ASP_ROOT" >&2
-  exit 1
-fi
-echo "ASP root verified: 0x$ONCHAIN_ROOT"
+echo "  ASP root on-chain: 0x$ONCHAIN_ASP"
 
-echo "=== Deploy asp_nonmembership (fresh fraud tree) ==="
+echo "=== Deploy asp_nonmembership ==="
 ASP_FRAUD_ID=$(stellar contract deploy \
-  --wasm "$ROOT/contracts/$WASM/asp_nonmembership.wasm" \
+  --wasm "$WASM/asp_nonmembership.wasm" \
   --source-account "$IDENTITY" --network "$NETWORK")
-echo "ASP Fraud deployed: $ASP_FRAUD_ID"
+echo "  Fraud: $ASP_FRAUD_ID"
 sleep_tx
 retry_invoke --id "$ASP_FRAUD_ID" --source-account "$IDENTITY" --network "$NETWORK" \
   --send=yes -- init --admin "$ADMIN_ADDR"
-echo "ASP Fraud initialized"
 sleep_tx
 
-echo "=== Insert fraud patterns (fraud_tree.json order) ==="
 node --input-type=module -e "
 import { readFileSync } from 'node:fs';
 const t = JSON.parse(readFileSync(process.env.FRAUD_TREE_JSON, 'utf8'));
@@ -140,40 +94,36 @@ for (const e of t.leaves) {
 " | while read -r pattern; do
   retry_invoke --id "$ASP_FRAUD_ID" --source-account "$IDENTITY" --network "$NETWORK" \
     --send=yes -- insert_pattern --admin "$ADMIN_ADDR" --billing_pattern_hash "$pattern"
-  sleep 5
+  sleep 8
 done
 sleep_tx
 
-FRAUD_ONCHAIN_ROOT=$(stellar contract invoke --id "$ASP_FRAUD_ID" --source-account "$IDENTITY" --network "$NETWORK" \
+FRAUD_ROOT=$(stellar contract invoke --id "$ASP_FRAUD_ID" --source-account "$IDENTITY" --network "$NETWORK" \
   -- get_root | tr -d '"' | tr '[:upper:]' '[:lower:]' | sed 's/^0x//')
-if [[ "$FRAUD_ONCHAIN_ROOT" != "$EXPECTED_FRAUD_ROOT" ]]; then
-  echo "Fraud root mismatch: on-chain=$FRAUD_ONCHAIN_ROOT expected=$EXPECTED_FRAUD_ROOT" >&2
+if [[ "$FRAUD_ROOT" != "$EXPECTED_FRAUD_ROOT" ]]; then
+  echo "Fraud root mismatch: $FRAUD_ROOT != $EXPECTED_FRAUD_ROOT" >&2
   exit 1
 fi
-echo "Fraud root verified: 0x$FRAUD_ONCHAIN_ROOT"
+echo "  Fraud root verified: 0x$FRAUD_ROOT"
 
 echo "=== Deploy deductible_tracker ==="
 TRACKER_ID=$(stellar contract deploy \
-  --wasm "$ROOT/contracts/$WASM/deductible_tracker.wasm" \
+  --wasm "$WASM/deductible_tracker.wasm" \
   --source-account "$IDENTITY" --network "$NETWORK")
-echo "Deductible Tracker deployed: $TRACKER_ID"
 sleep_tx
 retry_invoke --id "$TRACKER_ID" --source-account "$IDENTITY" --network "$NETWORK" \
   --send=yes -- init --verifier "$VERIFIER_ID" --admin "$ADMIN_ADDR"
-echo "Deductible Tracker initialized"
 sleep_tx
 
 USDC_TOKEN=$(stellar contract id asset --asset "$ZKLAIM_USDC_ASSET" --network "$NETWORK")
 
-echo "=== Deploy claim_escrow (wire new ASP + fraud + tracker) ==="
+echo "=== Deploy claim_escrow ==="
 ESCROW_ID=$(stellar contract deploy \
-  --wasm "$ROOT/contracts/$WASM/claim_escrow.wasm" \
+  --wasm "$WASM/claim_escrow.wasm" \
   --source-account "$IDENTITY" --network "$NETWORK")
-echo "Claim Escrow deployed: $ESCROW_ID"
 sleep_tx
 retry_invoke --id "$ESCROW_ID" --source-account "$IDENTITY" --network "$NETWORK" \
-  --send=yes \
-  -- init \
+  --send=yes -- init \
   --admin "$ADMIN_ADDR" \
   --verifier "$VERIFIER_ID" \
   --asp_member "$ASP_MEMBER_ID" \
@@ -183,28 +133,23 @@ retry_invoke --id "$ESCROW_ID" --source-account "$IDENTITY" --network "$NETWORK"
   --usdc_token "$USDC_TOKEN" \
   --insurer_escrow "$INSURER" \
   --coinsurance_bps 2000
-echo "Claim Escrow initialized"
 sleep_tx
 
-echo "=== Wire claim_escrow into deductible_tracker (eliminates oversized auth sub-invocation) ==="
 retry_invoke --id "$TRACKER_ID" --source-account "$IDENTITY" --network "$NETWORK" \
   --send=yes -- set_escrow --escrow "$ESCROW_ID"
 sleep_tx
 
-echo "=== Fund claim escrow with USDC (insurer → contract) ==="
-# 15 USDC reserve for demo payouts (7 decimals) — adjust if insurer balance is low
+echo "=== Fund escrow (15 USDC) ==="
 retry_invoke --id "$USDC_TOKEN" --source-account "$IDENTITY" --network "$NETWORK" \
   --send=yes -- transfer --from "$INSURER" --to "$ESCROW_ID" --amount 150000000
 
-echo "=== Redeploy passport_registry (wire new claim_escrow) ==="
+echo "=== Deploy passport_registry ==="
 PASSPORT_ID=$(stellar contract deploy \
-  --wasm "$ROOT/contracts/$WASM/passport_registry.wasm" \
+  --wasm "$WASM/passport_registry.wasm" \
   --source-account "$IDENTITY" --network "$NETWORK")
-echo "Passport Registry deployed: $PASSPORT_ID"
 sleep_tx
 retry_invoke --id "$PASSPORT_ID" --source-account "$IDENTITY" --network "$NETWORK" \
   --send=yes -- init --admin "$ADMIN_ADDR" --claim_escrow "$ESCROW_ID" --verifier "$VERIFIER_ID"
-echo "Passport Registry initialized"
 sleep_tx
 
 update_env "ASP_MEMBER_CONTRACT_ID" "$ASP_MEMBER_ID"
@@ -220,15 +165,11 @@ update_env "VITE_USDC_TOKEN_CONTRACT_ID" "$USDC_TOKEN"
 update_env "PASSPORT_REGISTRY_CONTRACT_ID" "$PASSPORT_ID"
 update_env "VITE_PASSPORT_REGISTRY_CONTRACT_ID" "$PASSPORT_ID"
 
-echo "=== Redeploy ASP + fraud + escrow complete ==="
-echo "  ASP_MEMBER_CONTRACT_ID=$ASP_MEMBER_ID"
-echo "  ASP_FRAUD_CONTRACT_ID=$ASP_FRAUD_ID"
-echo "  DEDUCTIBLE_TRACKER_CONTRACT_ID=$TRACKER_ID"
-echo "  CLAIM_ESCROW_CONTRACT_ID=$ESCROW_ID"
-echo "  PASSPORT_REGISTRY_CONTRACT_ID=$PASSPORT_ID"
+echo "=== Done ==="
+echo "  ASP_MEMBER=$ASP_MEMBER_ID"
+echo "  ASP_FRAUD=$ASP_FRAUD_ID"
+echo "  TRACKER=$TRACKER_ID"
+echo "  ESCROW=$ESCROW_ID"
+echo "  PASSPORT=$PASSPORT_ID"
 
-echo "=== Register demo policy on testnet ==="
 bash "$ROOT/scripts/sync_demo_testnet.sh" "$NETWORK" "$IDENTITY"
-
-echo ""
-echo "Restart npm run dev so Vite picks up new contract IDs."

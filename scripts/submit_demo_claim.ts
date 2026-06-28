@@ -8,6 +8,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 import { Keypair, Networks } from "@stellar/stellar-sdk";
 import { generateClaimProofs, buildClaimTransaction } from "@zklaim/proof-gen";
 import { loadDemoClaimData } from "@zklaim/proof-gen/demo";
@@ -24,6 +25,59 @@ function loadEnv(): Record<string, string> {
     if (m) out[m[1]] = m[2].replace(/^"|"$/g, "");
   }
   return out;
+}
+
+function loadPatientKeypair(
+  env: Record<string, string>,
+  simulateOnly: boolean,
+): Keypair | null {
+  const secret = loadPatientSecret(env);
+  if (secret) return Keypair.fromSecret(secret);
+
+  const patientPub =
+    process.env.PATIENT_PUBLIC_KEY ??
+    env.PATIENT_PUBLIC_KEY ??
+    env.DEPLOYER_PUBLIC_KEY;
+  if (simulateOnly && patientPub) {
+    // Simulation only needs a funded account envelope; key not required.
+    return Keypair.fromPublicKey(patientPub);
+  }
+  return null;
+}
+
+function loadPatientSecret(env: Record<string, string>): string | undefined {
+  if (process.env.PATIENT_SECRET_KEY) return process.env.PATIENT_SECRET_KEY;
+  if (env.PATIENT_SECRET_KEY) return env.PATIENT_SECRET_KEY;
+
+  const identity =
+    process.env.PATIENT_IDENTITY ?? env.PATIENT_IDENTITY ?? "zklaim-patient";
+  const candidates = [
+    join(ROOT, ".stellar", "identity", `${identity}.toml`),
+    join(process.env.HOME ?? "", ".config", "stellar", "identity", `${identity}.toml`),
+  ];
+  for (const path of candidates) {
+    if (!existsSync(path)) continue;
+    const body = readFileSync(path, "utf8");
+    const secretMatch = body.match(/secret_key\s*=\s*"([^"]+)"/);
+    if (secretMatch) return secretMatch[1];
+  }
+
+  try {
+    return execFileSync("stellar", ["keys", "secret", identity], {
+      encoding: "utf8",
+      cwd: ROOT,
+    }).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+function signWithStellarCli(unsignedXdr: string, identity: string): string {
+  return execFileSync(
+    "stellar",
+    ["tx", "sign", "--source-account", identity],
+    { input: unsignedXdr, encoding: "utf8" },
+  ).trim();
 }
 
 async function main() {
@@ -43,18 +97,32 @@ async function main() {
   const proofPkg = await generateClaimProofs(claim, { useWorkers: false });
   console.log("  OK: four proofs generated");
 
-  const patientSecret =
-    process.env.PATIENT_SECRET_KEY ?? env.PATIENT_SECRET_KEY;
-  if (!patientSecret) {
-    console.log("PATIENT_SECRET_KEY not set — proofs only, skipping tx");
+  const patient = loadPatientKeypair(env, simulateOnly);
+  const patientIdentity =
+    process.env.PATIENT_IDENTITY ?? env.PATIENT_IDENTITY ?? "zklaim-patient";
+  let patientPub = patient?.publicKey();
+  if (!patientPub) {
+    try {
+      patientPub = execFileSync(
+        "stellar",
+        ["keys", "address", patientIdentity],
+        { encoding: "utf8", cwd: ROOT },
+      ).trim();
+    } catch {
+      patientPub = undefined;
+    }
+  }
+  if (!patientPub) {
+    console.log(
+      "Set PATIENT_SECRET_KEY, PATIENT_IDENTITY, or DEPLOYER_PUBLIC_KEY (simulate-only) — skipping tx",
+    );
     return;
   }
 
-  const patient = Keypair.fromSecret(patientSecret);
-  console.log(`=== Building submit_claim for ${patient.publicKey()} ===`);
+  console.log(`=== Building submit_claim for ${patientPub} ===`);
   const tx = await buildClaimTransaction({
     proofPackage: proofPkg,
-    patientPublicKey: patient.publicKey(),
+    patientPublicKey: patientPub,
     escrowContractId: escrowId,
     rpcUrl,
     networkPassphrase,
@@ -62,14 +130,34 @@ async function main() {
   console.log("  OK: transaction built");
 
   if (simulateOnly) {
-    console.log("=== --simulate-only: not submitting ===");
+    const { rpc } = await import("@stellar/stellar-sdk");
+    const server = new rpc.Server(rpcUrl);
+    const sim = await server.simulateTransaction(tx);
+    if (rpc.Api.isSimulationError(sim)) {
+      throw new Error(`Simulation failed: ${JSON.stringify(sim.error)}`);
+    }
+    console.log("=== --simulate-only: simulation OK ===");
+    console.log("  minResourceFee:", sim.minResourceFee);
     return;
   }
 
-  tx.sign(patient);
-  const { rpc } = await import("@stellar/stellar-sdk");
+  let signedXdr: string;
+  try {
+    signedXdr = signWithStellarCli(tx.toXDR(), patientIdentity);
+    console.log("  OK: signed via stellar CLI");
+  } catch (err) {
+    if (!patient) {
+      throw err;
+    }
+    tx.sign(patient);
+    signedXdr = tx.toXDR();
+    console.log("  OK: signed via Keypair");
+  }
+
+  const { rpc, TransactionBuilder } = await import("@stellar/stellar-sdk");
+  const signed = TransactionBuilder.fromXDR(signedXdr, networkPassphrase);
   const server = new rpc.Server(rpcUrl);
-  const sent = await server.sendTransaction(tx);
+  const sent = await server.sendTransaction(signed);
   console.log("  submit status:", sent.status, sent.hash);
 
   if (sent.status === "ERROR") {

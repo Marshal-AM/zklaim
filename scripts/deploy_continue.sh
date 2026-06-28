@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Continue deploy after partial failure (verifier + some VKs already on-chain).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -6,60 +7,33 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "$ROOT/scripts/wsl_env.sh"
 
 NETWORK="${1:-testnet}"
-IDENTITY="${2:-zklaim-deploy}"
+IDENTITY="${2:-aim-soroban-deployer}"
+VERIFIER_ID="${3:?usage: deploy_continue.sh network identity verifier_id}"
 ADMIN_ADDR="$(stellar keys address "$IDENTITY")"
 
-echo "=== Deploying ZKlaim contracts to $NETWORK (identity: $IDENTITY) ==="
-
-if [[ -f "$ROOT/.env" ]]; then
-  # shellcheck disable=SC1090
-  source "$ROOT/.env"
-fi
-
-deploy_circle_usdc_sac() {
-  source "$ROOT/scripts/usdc_circle.sh"
-  echo "=== Resolving Circle testnet USDC SAC (issuer=$ZKLAIM_USDC_ISSUER) ==="
-  stellar contract id asset --asset "$ZKLAIM_USDC_ASSET" --network "$NETWORK"
-}
-
-USDC_TOKEN="${USDC_TOKEN_CONTRACT_ID:-}"
-if [[ -z "$USDC_TOKEN" ]]; then
-  USDC_TOKEN="$(deploy_circle_usdc_sac | tail -1)"
-  echo "USDC_TOKEN_CONTRACT_ID=$USDC_TOKEN"
-fi
+# shellcheck disable=SC1091
+source "$ROOT/.env"
+USDC_TOKEN="${USDC_TOKEN_CONTRACT_ID:?}"
+# shellcheck disable=SC1091
 source "$ROOT/scripts/usdc_circle.sh"
-CIRCLE_USDC_ISSUER="$ZKLAIM_USDC_ISSUER"
 
+unset CARGO_TARGET_DIR
 cd "$ROOT/contracts"
 cargo build --workspace --target wasm32v1-none --release
-
 WASM="target/wasm32v1-none/release"
 CIRCUITS=(policy_validity amount_range doctor_attestation deductible_accumulator category_nonmembership)
 
-echo "=== 1. Deploy ultrahonk_verifier ==="
-VERIFIER_ID=$(stellar contract deploy \
-  --wasm "$ROOT/contracts/$WASM/ultrahonk_verifier.wasm" \
-  --source-account "$IDENTITY" --network "$NETWORK")
-echo "Verifier: $VERIFIER_ID"
-
-stellar contract invoke --id "$VERIFIER_ID" --source-account "$IDENTITY" --network "$NETWORK" \
-  -- init_admin --admin "$ADMIN_ADDR"
-
-echo "=== 2. Initialize VKs (circuit_id 0-4) ==="
-for i in "${!CIRCUITS[@]}"; do
+echo "=== Finish VK init on $VERIFIER_ID ==="
+for i in 2 3 4; do
   circuit="${CIRCUITS[$i]}"
   vk="$ROOT/circuits/target/bb/$circuit/vk"
-  if [[ ! -f "$vk" ]]; then
-    echo "Missing $vk — run bash scripts/test_circuits.sh first" >&2
-    exit 1
-  fi
+  echo "=== VK $i ($circuit) ==="
   stellar contract invoke --id "$VERIFIER_ID" --source-account "$IDENTITY" --network "$NETWORK" \
     -- init \
     --admin "$ADMIN_ADDR" \
     --circuit_id "$i" \
     --vk_bytes "$(xxd -p -c 256 "$vk" | tr -d '\n')"
-  echo "  VK $i ($circuit) initialized"
-  sleep 2
+  sleep 3
 done
 
 echo "=== 3. Deploy asp_membership ==="
@@ -69,6 +43,7 @@ ASP_MEMBER_ID=$(stellar contract deploy \
 stellar contract invoke --id "$ASP_MEMBER_ID" --source-account "$IDENTITY" --network "$NETWORK" \
   -- init --admin "$ADMIN_ADDR"
 echo "ASP Member: $ASP_MEMBER_ID"
+sleep 2
 
 echo "=== 4. Deploy asp_nonmembership ==="
 ASP_FRAUD_ID=$(stellar contract deploy \
@@ -77,12 +52,14 @@ ASP_FRAUD_ID=$(stellar contract deploy \
 stellar contract invoke --id "$ASP_FRAUD_ID" --source-account "$IDENTITY" --network "$NETWORK" \
   -- init --admin "$ADMIN_ADDR"
 echo "ASP Fraud: $ASP_FRAUD_ID"
+sleep 2
 
 echo "=== 5. Deploy policy_registry ==="
 POLICY_ID=$(stellar contract deploy \
   --wasm "$ROOT/contracts/$WASM/policy_registry.wasm" \
   --source-account "$IDENTITY" --network "$NETWORK")
 echo "Policy Registry: $POLICY_ID"
+sleep 2
 
 echo "=== 6. Deploy deductible_tracker ==="
 TRACKER_ID=$(stellar contract deploy \
@@ -91,6 +68,7 @@ TRACKER_ID=$(stellar contract deploy \
 stellar contract invoke --id "$TRACKER_ID" --source-account "$IDENTITY" --network "$NETWORK" \
   -- init --verifier "$VERIFIER_ID" --admin "$ADMIN_ADDR"
 echo "Deductible Tracker: $TRACKER_ID"
+sleep 2
 
 echo "=== 7. Deploy claim_escrow ==="
 ESCROW_ID=$(stellar contract deploy \
@@ -108,6 +86,7 @@ stellar contract invoke --id "$ESCROW_ID" --source-account "$IDENTITY" --network
   --insurer_escrow "$ADMIN_ADDR" \
   --coinsurance_bps 2000
 echo "Claim Escrow: $ESCROW_ID"
+sleep 2
 
 echo "=== 8. Deploy passport_registry ==="
 PASSPORT_ID=$(stellar contract deploy \
@@ -118,8 +97,6 @@ stellar contract invoke --id "$PASSPORT_ID" --source-account "$IDENTITY" --netwo
 echo "Passport Registry: $PASSPORT_ID"
 
 ENV_OUT="$ROOT/.env"
-touch "$ENV_OUT"
-# Preserve optional app secrets from existing .env
 PRESERVE_VITE_SUPABASE_URL=""
 PRESERVE_VITE_SUPABASE_ANON_KEY=""
 if [[ -f "$ENV_OUT" ]]; then
@@ -145,7 +122,7 @@ fi
   echo "PASSPORT_REGISTRY_CONTRACT_ID=$PASSPORT_ID"
   echo ""
   echo "# Circle testnet USDC (classic issuer + Soroban SAC for claim_escrow payouts)"
-  echo "USDC_ISSUER=$CIRCLE_USDC_ISSUER"
+  echo "USDC_ISSUER=$ZKLAIM_USDC_ISSUER"
   echo "USDC_TOKEN_CONTRACT_ID=$USDC_TOKEN"
   echo "INSURER_FUND_ADDRESS=$ADMIN_ADDR"
   echo ""
@@ -159,7 +136,7 @@ fi
   echo "VITE_POLICY_REGISTRY_CONTRACT_ID=$POLICY_ID"
   echo "VITE_PASSPORT_REGISTRY_CONTRACT_ID=$PASSPORT_ID"
   echo "VITE_USDC_TOKEN_CONTRACT_ID=$USDC_TOKEN"
-  echo "VITE_USDC_ISSUER=$CIRCLE_USDC_ISSUER"
+  echo "VITE_USDC_ISSUER=$ZKLAIM_USDC_ISSUER"
   echo "VITE_INSURER_FUND_ADDRESS=$ADMIN_ADDR"
   if [[ -n "$PRESERVE_VITE_SUPABASE_URL" ]]; then
     echo "VITE_SUPABASE_URL=$PRESERVE_VITE_SUPABASE_URL"
