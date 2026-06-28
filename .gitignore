@@ -41,3 +41,5 @@ scripts/artifacts/*.json
 # App public copies (regenerated)
 app/public/trees/*.json
 !app/public/trees/.gitkeep
+
+.stellar/
