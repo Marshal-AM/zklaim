@@ -8,6 +8,7 @@ members = [
     "policy_registry",
     "claim_escrow",
     "deductible_tracker",
+    "passport_registry",
 ]
 
 [workspace.dependencies]

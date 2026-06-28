@@ -154,7 +154,11 @@ impl ClaimEscrow {
 
         env.events().publish(
             (symbol_short!("claim"),),
-            (pkg.nullifier, patient, payout),
+            (pkg.nullifier.clone(), patient.clone(), payout),
+        );
+        env.events().publish(
+            (symbol_short!("passport"), symbol_short!("leaf_rdy")),
+            (patient.clone(), pkg.nullifier.clone()),
         );
     }
 
