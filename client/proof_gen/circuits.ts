@@ -164,3 +164,38 @@ export async function proveAccumCircuit(args: {
     claim_hash: fieldToNoirInput(args.claim_hash),
   });
 }
+
+export async function proveCategoryNonMembershipCircuit(args: {
+  passport_root: bigint;
+  excluded_category: bigint;
+  claim_count: number;
+  leaf_nullifiers: bigint[];
+  leaf_secrets: bigint[];
+  leaf_categories: bigint[];
+  leaf_amount_bkts: bigint[];
+  leaf_months: bigint[];
+  merkle_paths: bigint[][];
+  leaf_active: boolean[];
+}): Promise<CircuitProofResult> {
+  const pad = <T>(arr: T[], len: number, fill: T) => {
+    const out = [...arr];
+    while (out.length < len) out.push(fill);
+    return out.slice(0, len);
+  };
+  const MAX = 32;
+  const DEPTH = 8;
+  return proveCircuit("category_nonmembership", {
+    passport_root: fieldToNoirInput(args.passport_root),
+    excluded_category: fieldToNoirInput(args.excluded_category),
+    claim_count: String(args.claim_count),
+    leaf_nullifiers: pad(args.leaf_nullifiers, MAX, 0n).map(fieldToNoirInput),
+    leaf_secrets: pad(args.leaf_secrets, MAX, 0n).map(fieldToNoirInput),
+    leaf_categories: pad(args.leaf_categories, MAX, 0n).map(fieldToNoirInput),
+    leaf_amount_bkts: pad(args.leaf_amount_bkts, MAX, 0n).map(fieldToNoirInput),
+    leaf_months: pad(args.leaf_months, MAX, 0n).map(fieldToNoirInput),
+    merkle_paths: pad(args.merkle_paths, MAX, Array(DEPTH).fill(0n)).map((p) =>
+      pad(p, DEPTH, 0n).map(fieldToNoirInput),
+    ),
+    leaf_active: pad(args.leaf_active, MAX, false),
+  });
+}

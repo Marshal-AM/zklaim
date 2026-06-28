@@ -15,7 +15,7 @@ bash "$ROOT/scripts/test_circuits.sh"
 echo "=== Copying ACIR artifacts to client/wasm/ ==="
 cd "$ROOT/circuits"
 mkdir -p "$ROOT/client/wasm"
-for circuit in policy_validity amount_range doctor_attestation deductible_accumulator; do
+for circuit in policy_validity amount_range doctor_attestation deductible_accumulator category_nonmembership; do
   cp "./target/${circuit}.json" "$ROOT/client/wasm/${circuit}.json"
   echo "  ACIR: client/wasm/${circuit}.json"
 done

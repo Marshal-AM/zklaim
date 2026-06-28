@@ -91,7 +91,8 @@ export type CircuitName =
   | "policy_validity"
   | "amount_range"
   | "doctor_attestation"
-  | "deductible_accumulator";
+  | "deductible_accumulator"
+  | "category_nonmembership";
 
 export type ProofProgressStage =
   | "policy"

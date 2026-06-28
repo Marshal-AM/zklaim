@@ -55,6 +55,7 @@ const WORKER_URLS: Record<CircuitName, string> = {
   amount_range: "./workers/amount.worker.ts",
   doctor_attestation: "./workers/doctor.worker.ts",
   deductible_accumulator: "./workers/accum.worker.ts",
+  category_nonmembership: "./workers/category.worker.ts",
 };
 
 function runWorker(

@@ -50,6 +50,17 @@ function nrPath(name: string, path: string[]): string {
   return `pub global ${name}: [Field; 10] = [${elems}];`;
 }
 
+function bucketAmountCents(amountCents: number): number {
+  const step = 50_000;
+  return Math.floor(amountCents / step) * step;
+}
+
+function visitMonthFromYmd(ymd: number): number {
+  const y = Math.floor(ymd / 10000);
+  const m = Math.floor((ymd % 10000) / 100) - 1;
+  return y * 12 + m;
+}
+
 async function main() {
   const policyPath = join(ARTIFACTS, "policy_tree.json");
   const aspPath = join(ARTIFACTS, "asp_tree.json");
@@ -201,6 +212,32 @@ async function main() {
     writeFileSync(path, content.replace(/\r\n/g, "\n"), "utf8");
   };
 
+  const fieldArrayToml = (values: string[]) => {
+    const lines = values.map((v) => `  "${v}"`).join(",\n");
+    return `[\n${lines}\n]`;
+  };
+
+  const boolArrayToml = (values: boolean[]) => {
+    const lines = values.map((v) => `  ${v}`).join(",\n");
+    return `[\n${lines}\n]`;
+  };
+
+  async function computeMerkleRootDepth8(
+    leaf: bigint,
+    index: number,
+    path: bigint[],
+  ): Promise<bigint> {
+    let current = leaf;
+    for (let i = 0; i < 8; i++) {
+      const isRight = (index >> i) & 1;
+      const sibling = path[i]!;
+      current = await poseidon2HashFixed(
+        isRight === 1 ? [sibling, current] : [current, sibling],
+      );
+    }
+    return current;
+  }
+
   writeToml(
     join(ROOT, "circuits", "policy_validity", "Prover.toml"),
     `coverage_merkle_root = "${policyTree.root}"
@@ -252,7 +289,65 @@ deductible_limit = ${demo.demo_b.deductible_limit_cents}
 `,
   );
 
-  console.log("Wrote Prover.toml for all four circuits");
+  const zero = f(0n);
+  const passportNullifier = fieldFromHex(demo.random_nonce);
+  const passportSecret = fieldFromHex("0x4242424242424242424242424242424242424242424242424242424242424242");
+  const passportCategory = stringToField("J");
+  const passportAmountBucket = BigInt(bucketAmountCents(demo.demo_a.raw_amount_cents));
+  const passportVisitMonth = BigInt(visitMonthFromYmd(Number(demo.visit_date)));
+  const passportLeaf = await poseidon2HashFixed([
+    passportNullifier,
+    passportSecret,
+    passportCategory,
+    passportAmountBucket,
+    passportVisitMonth,
+  ]);
+  const passportPath = Array.from({ length: 8 }, () => 0n);
+  const passportRoot = await computeMerkleRootDepth8(passportLeaf, 0, passportPath);
+  const excludedCategory = stringToField("Z");
+
+  const leafNullifiers = Array.from({ length: 32 }, (_, i) =>
+    i === 0 ? f(passportNullifier) : zero,
+  );
+  const leafSecrets = Array.from({ length: 32 }, (_, i) =>
+    i === 0 ? f(passportSecret) : zero,
+  );
+  const leafCategories = Array.from({ length: 32 }, (_, i) =>
+    i === 0 ? f(passportCategory) : zero,
+  );
+  const leafAmountBkts = Array.from({ length: 32 }, (_, i) =>
+    i === 0 ? f(passportAmountBucket) : zero,
+  );
+  const leafMonths = Array.from({ length: 32 }, (_, i) =>
+    i === 0 ? f(passportVisitMonth) : zero,
+  );
+  const merklePaths = Array.from({ length: 32 }, (_, i) =>
+    i === 0 ? Array(8).fill(zero) : Array(8).fill(zero),
+  );
+  const leafActive = Array.from({ length: 32 }, (_, i) => i === 0);
+
+  const merklePathsToml = merklePaths
+    .map((path) => `  [${path.map((p) => `"${p}"`).join(", ")}]`)
+    .join(",\n");
+
+  writeToml(
+    join(ROOT, "circuits", "category_nonmembership", "Prover.toml"),
+    `passport_root = "${f(passportRoot)}"
+excluded_category = "${f(excludedCategory)}"
+claim_count = 1
+leaf_nullifiers = ${fieldArrayToml(leafNullifiers)}
+leaf_secrets = ${fieldArrayToml(leafSecrets)}
+leaf_categories = ${fieldArrayToml(leafCategories)}
+leaf_amount_bkts = ${fieldArrayToml(leafAmountBkts)}
+leaf_months = ${fieldArrayToml(leafMonths)}
+merkle_paths = [
+${merklePathsToml}
+]
+leaf_active = ${boolArrayToml(leafActive)}
+`,
+  );
+
+  console.log("Wrote Prover.toml for all five circuits");
 }
 
 main().catch((err) => {

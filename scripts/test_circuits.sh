@@ -12,14 +12,14 @@ nargo compile --workspace
 echo "=== Running Noir tests ==="
 nargo test --workspace
 
-for circuit in policy_validity amount_range doctor_attestation deductible_accumulator; do
+for circuit in policy_validity amount_range doctor_attestation deductible_accumulator category_nonmembership; do
   echo "=== nargo execute: $circuit ==="
   (cd "./$circuit" && nargo execute)
 done
 
 echo "=== bb prove/verify ==="
 TARGET="$ROOT/circuits/target"
-for circuit in policy_validity amount_range doctor_attestation deductible_accumulator; do
+for circuit in policy_validity amount_range doctor_attestation deductible_accumulator category_nonmembership; do
   OUT="$TARGET/bb/$circuit"
   mkdir -p "$OUT"
   echo "=== bb prove/verify: $circuit ==="

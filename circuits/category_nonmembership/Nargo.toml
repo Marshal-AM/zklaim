@@ -1,0 +1,8 @@
+[package]
+name = "category_nonmembership"
+type = "bin"
+authors = ["ZKlaim"]
+compiler_version = ">=1.0.0"
+
+[dependencies]
+zklaim_common = { path = "../common" }

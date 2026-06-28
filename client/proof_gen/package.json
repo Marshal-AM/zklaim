@@ -13,7 +13,8 @@
     "./stellar/submit": "./stellar/submit.ts",
     "./stellar/sorobanDebug": "./stellar/sorobanDebug.ts",
     "./stellar/bytes": "./stellar/bytes.ts",
-    "./stellar/encoding": "./stellar/encoding.ts"
+    "./stellar/encoding": "./stellar/encoding.ts",
+    "./circuits": "./circuits.ts"
   },
   "scripts": {
     "test": "vitest run",

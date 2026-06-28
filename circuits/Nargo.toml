@@ -7,4 +7,5 @@ members = [
     "doctor_attestation",
     "deductible_accumulator",
     "poseidon_reference",
+    "category_nonmembership",
 ]

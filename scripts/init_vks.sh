@@ -13,7 +13,7 @@ ADMIN_ADDR="$(stellar keys address "$IDENTITY")"
 source "$ROOT/.env"
 
 VERIFIER_ID="${VERIFIER_CONTRACT_ID:?set VERIFIER_CONTRACT_ID in .env}"
-CIRCUITS=(policy_validity amount_range doctor_attestation deductible_accumulator)
+CIRCUITS=(policy_validity amount_range doctor_attestation deductible_accumulator category_nonmembership)
 
 echo "=== Initializing VKs on $VERIFIER_ID ==="
 for i in "${!CIRCUITS[@]}"; do
@@ -23,12 +23,14 @@ for i in "${!CIRCUITS[@]}"; do
     echo "Missing $vk — run bash scripts/test_circuits.sh first" >&2
     exit 1
   fi
+  echo "=== VK $i ($circuit) ==="
   stellar contract invoke --id "$VERIFIER_ID" --source-account "$IDENTITY" --network "$NETWORK" \
     -- init \
     --admin "$ADMIN_ADDR" \
     --circuit_id "$i" \
     --vk_bytes "$(xxd -p -c 256 "$vk" | tr -d '\n')"
   echo "  VK $i ($circuit) initialized"
+  sleep 2
 done
 
 echo "=== VK init complete ==="
