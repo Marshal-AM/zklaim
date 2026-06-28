@@ -43,7 +43,7 @@ export function PatientSubmitPage() {
   }
 
   const selectedClaim =
-    (claimId ? submittable.find((c) => c.id === claimId) : null) ??
+    (claimId ? inbox.find((c) => c.id === claimId) : null) ??
     (submittable.length === 1 ? submittable[0] : null);
 
   return (

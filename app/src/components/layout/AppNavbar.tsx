@@ -6,11 +6,13 @@ const PATIENT_TABS: PortalTab[] = [
   { to: "/patient/identity", label: "Identity" },
   { to: "/patient/inbox", label: "Inbox" },
   { to: "/patient/submit", label: "Submit", matchPrefix: true },
+  { to: "/patient/passport", label: "Passport", matchPrefix: true },
   { to: "/patient/history", label: "History" },
 ];
 
 const PROVIDER_TABS: PortalTab[] = [
   { to: "/provider/create", label: "Create claim" },
+  { to: "/provider/register", label: "Credential" },
   { to: "/provider/history", label: "History" },
 ];
 

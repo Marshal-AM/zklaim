@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { computeClaimHash, fieldFromHex } from "@zklaim/scripts";
 import { ensureWalletConnected } from "../lib/walletSession";
@@ -196,9 +197,17 @@ export function NewClaimForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error ? <ErrorBanner message={error} /> : null}
-      <p className="text-xs text-muted-foreground">
-        Credential: {physician?.license_id} ({physician?.specialty_code})
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          Credential: {physician?.license_id} ({physician?.specialty_code})
+        </p>
+        <Link
+          to="/provider/register"
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          Change credential
+        </Link>
+      </div>
       <FormField
         label="Patient Stellar address"
         hint={

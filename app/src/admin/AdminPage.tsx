@@ -2,6 +2,7 @@ import { DoctorEnrollment } from "./DoctorEnrollment";
 import { FraudPatterns } from "./FraudPatterns";
 import { PolicyRegistration } from "./PolicyRegistration";
 import { EscrowBalance } from "./EscrowBalance";
+import { VerifierRegistry } from "./VerifierRegistry";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageColumn, PageContent, PageGrid } from "../components/ui/PageGrid";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -30,6 +31,9 @@ export function AdminPage() {
           </SectionCard>
           <SectionCard label="Policy" title="On-chain registration">
             <PolicyRegistration />
+          </SectionCard>
+          <SectionCard label="Passport" title="Verifier registry">
+            <VerifierRegistry />
           </SectionCard>
         </PageColumn>
       </PageGrid>

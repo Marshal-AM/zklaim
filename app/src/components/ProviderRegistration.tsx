@@ -15,13 +15,23 @@ import { useWalletStore } from "../store/wallet";
 
 interface ProviderRegistrationProps {
   onRegistered: () => void;
+  defaultLicenseId?: DemoLicenseId;
+  mode?: "register" | "change";
 }
 
-export function ProviderRegistration({ onRegistered }: ProviderRegistrationProps) {
+export function ProviderRegistration({
+  onRegistered,
+  defaultLicenseId = "MD-001",
+  mode = "register",
+}: ProviderRegistrationProps) {
   const address = useWalletStore((s) => s.address);
-  const [licenseId, setLicenseId] = useState<DemoLicenseId>("MD-001");
+  const [licenseId, setLicenseId] = useState<DemoLicenseId>(defaultLicenseId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLicenseId(defaultLicenseId);
+  }, [defaultLicenseId]);
 
   async function handleRegister() {
     setBusy(true);
@@ -62,10 +72,18 @@ export function ProviderRegistration({ onRegistered }: ProviderRegistrationProps
   }
 
   return (
-    <SectionCard label="Registration" title="Register as testnet provider">
+    <SectionCard
+      label={mode === "change" ? "Credential" : "Registration"}
+      title={
+        mode === "change"
+          ? "Change demo ASP credential"
+          : "Register as testnet provider"
+      }
+    >
       <p className="text-sm text-muted-foreground">
-        Link your Freighter wallet to a demo ASP credential (MD-001 matches the
-        hackathon pneumonia demo). Sign once with Freighter — no JSON editing.
+        {mode === "change"
+          ? "Pick which on-chain doctor credential this wallet signs claims with. MD-001 is the pneumonia demo (J18.9)."
+          : "Link your Freighter wallet to a demo ASP credential (MD-001 matches the hackathon pneumonia demo). Sign once with Freighter — no JSON editing."}
       </p>
       {error ? <ErrorBanner message={error} /> : null}
       <FormField label="Demo license (on-chain ASP)">
@@ -87,7 +105,7 @@ export function ProviderRegistration({ onRegistered }: ProviderRegistrationProps
         onClick={() => void handleRegister()}
         className="btn-primary w-full"
       >
-        {busy ? "Signing…" : "Register provider wallet"}
+        {busy ? "Signing…" : mode === "change" ? "Update credential" : "Register provider wallet"}
       </button>
     </SectionCard>
   );

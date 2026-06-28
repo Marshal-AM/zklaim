@@ -4,7 +4,11 @@ import { PatientIdentityPage } from "../../patient/PatientIdentityPage";
 import { PatientInboxPage } from "../../patient/PatientInboxPage";
 import { PatientSubmitPage } from "../../patient/PatientSubmitPage";
 import { PatientHistoryPage } from "../../patient/PatientHistoryPage";
+import { PatientPassportPage } from "../../patient/PatientPassportPage";
+import { PatientPassportHistoryPage } from "../../patient/PatientPassportHistoryPage";
+import { PatientPassportSharePage } from "../../patient/PatientPassportSharePage";
 import { ProviderCreatePage } from "../../provider/ProviderCreatePage";
+import { ProviderRegisterPage } from "../../provider/ProviderRegisterPage";
 import { ProviderHistoryPage } from "../../provider/ProviderHistoryPage";
 import { HomePage } from "../../pages/HomePage";
 import { WalletHydrator } from "../WalletHydrator";
@@ -17,15 +21,23 @@ export function AppShell() {
   const isLanding = pathname === "/";
 
   return (
-    <div className="min-h-screen bg-background select-none">
+    <div className="flex min-h-screen flex-col bg-background select-none">
       <WalletHydrator />
       <AppNavbar />
       <main
-        className={`mx-auto flex w-full max-w-[var(--page-max)] flex-col px-[var(--page-gutter)] ${
-          isLanding ? "py-4 md:py-6" : "py-8"
-        }`}
+        className={
+          isLanding
+            ? "flex flex-1 flex-col px-[var(--page-gutter)]"
+            : "mx-auto flex w-full max-w-[var(--page-max)] flex-col px-[var(--page-gutter)] py-8"
+        }
       >
-        <div className="w-full animate-fade-in-up stagger-2">
+        <div
+          className={
+            isLanding
+              ? "flex w-full max-w-[var(--page-max)] flex-1 flex-col animate-fade-in-up stagger-2"
+              : "w-full animate-fade-in-up stagger-2"
+          }
+        >
           <Routes>
             <Route path="/" element={<HomePage />} />
 
@@ -73,6 +85,30 @@ export function AppShell() {
                 </PatientLayout>
               }
             />
+            <Route
+              path="/patient/passport"
+              element={
+                <PatientLayout tab="passport">
+                  <PatientPassportPage />
+                </PatientLayout>
+              }
+            />
+            <Route
+              path="/patient/passport/history"
+              element={
+                <PatientLayout tab="passport">
+                  <PatientPassportHistoryPage />
+                </PatientLayout>
+              }
+            />
+            <Route
+              path="/patient/passport/share"
+              element={
+                <PatientLayout tab="passport">
+                  <PatientPassportSharePage />
+                </PatientLayout>
+              }
+            />
 
             <Route
               path="/provider"
@@ -83,6 +119,14 @@ export function AppShell() {
               element={
                 <ProviderLayout tab="create">
                   <ProviderCreatePage />
+                </ProviderLayout>
+              }
+            />
+            <Route
+              path="/provider/register"
+              element={
+                <ProviderLayout tab="register">
+                  <ProviderRegisterPage />
                 </ProviderLayout>
               }
             />

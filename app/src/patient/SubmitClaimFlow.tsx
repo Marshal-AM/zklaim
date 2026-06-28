@@ -19,7 +19,10 @@ import { markDeliveryClaimed } from "../lib/claimDelivery";
 import {
   decryptClaimToken,
   type EncryptedClaimToken,
+  type ClaimTokenPayload,
 } from "../lib/claimToken";
+import { appendSettlementToPassport } from "../lib/passportAppend";
+import { isPassportConfigured } from "../lib/passportContract";
 import { hydrateClaimFromToken } from "../lib/hydrateClaim";
 import { fetchUsdcBalance, formatUsdc } from "../lib/balances";
 import {
@@ -77,7 +80,12 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
     nullifier: string;
     txHash: string;
     usdcReceived: number;
+    patientAddress: string;
+    payload: ClaimTokenPayload;
   } | null>(null);
+  const [passportBusy, setPassportBusy] = useState(false);
+  const [passportAdded, setPassportAdded] = useState(false);
+  const [passportError, setPassportError] = useState<string | null>(null);
 
   const appendLog = useCallback((entry: SubmitClaimLogEntry) => {
     setLogEntries((prev) => [...prev, entry]);
@@ -297,6 +305,7 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         nullifier: nullifierHex,
         submittedAt: new Date().toISOString(),
         txHash: result.hash,
+        claimId: claim.id,
       };
       addHistory(histEntry);
       await savePatientHistory([histEntry, ...history]);
@@ -319,9 +328,10 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         nullifier: nullifierHex,
         txHash: result.hash,
         usdcReceived,
+        patientAddress: address,
+        payload,
       });
       log.success("Submit claim completed successfully");
-      onComplete();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Submit failed";
       log.error("Submit claim failed", err);
@@ -375,6 +385,27 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
     }
   }
 
+  async function handleAddToPassport() {
+    if (!receipt) return;
+    setPassportBusy(true);
+    setPassportError(null);
+    try {
+      await appendSettlementToPassport({
+        patientAddress: receipt.patientAddress,
+        nullifierHex: receipt.nullifier,
+        txHash: receipt.txHash,
+        payload: receipt.payload,
+      });
+      setPassportAdded(true);
+    } catch (err) {
+      setPassportError(
+        err instanceof Error ? err.message : "Failed to add to passport",
+      );
+    } finally {
+      setPassportBusy(false);
+    }
+  }
+
   if (receipt) {
     return (
       <div className="space-y-4">
@@ -397,7 +428,67 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
             View on explorer
           </a>
         </div>
+
+        {isPassportConfigured() ? (
+          <div className="card-padded space-y-3">
+            <p className="section-label">Health Passport</p>
+            <h4 className="font-[650]">Add this claim to your Health Passport?</h4>
+            <p className="text-sm text-muted-foreground">
+              Prove your coverage history to hospitals, insurers, and employers —
+              privately, from this app. Settlement does not add claims
+              automatically — you must confirm below.
+            </p>
+            {passportError ? <ErrorBanner message={passportError} /> : null}
+            {passportAdded ? (
+              <p className="text-sm text-success">
+                Claim added to your passport. View it in the Passport tab.
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void handleAddToPassport()}
+                disabled={passportBusy}
+                className="btn-primary w-full py-3"
+              >
+                {passportBusy ? "Adding to passport…" : "Add to Passport"}
+              </button>
+            )}
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={onComplete}
+          className="btn-secondary w-full py-3"
+        >
+          View claim history
+        </button>
         <SubmitClaimLogPanel entries={logEntries} />
+      </div>
+    );
+  }
+
+  if (claim.status === "submitted" && !receipt && !busy) {
+    return (
+      <div className="space-y-4">
+        <div className="success-card space-y-3 p-6">
+          <h3 className="text-lg font-[650] tracking-tight text-success">
+            Claim already settled
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            This claim was submitted successfully. Use{" "}
+            <strong className="font-[650] text-foreground">Add to Passport</strong>{" "}
+            on the settlement screen right after submit, or open claim history if
+            you navigated away before adding it.
+          </p>
+          <button
+            type="button"
+            onClick={onComplete}
+            className="btn-secondary w-full py-3"
+          >
+            View claim history
+          </button>
+        </div>
       </div>
     );
   }

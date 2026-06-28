@@ -27,6 +27,11 @@ const TAB_COPY = {
     subtitle:
       "Settled claims — nullifiers and timestamps only. No medical data is stored.",
   },
+  passport: {
+    title: "Health Passport",
+    subtitle:
+      "Your private claim history — share selective credentials without revealing diagnosis.",
+  },
 } as const;
 
 export type PatientTab = keyof typeof TAB_COPY;

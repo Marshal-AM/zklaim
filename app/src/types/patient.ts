@@ -26,4 +26,6 @@ export interface ClaimHistoryEntry {
   nullifier: string;
   submittedAt: string;
   txHash?: string;
+  /** Inbox claim id — used to recover payload for Health Passport append */
+  claimId?: string;
 }

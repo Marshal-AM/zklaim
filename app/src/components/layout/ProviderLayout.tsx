@@ -10,6 +10,11 @@ const TAB_COPY = {
     subtitle:
       "Sign and encrypt a claim token for your patient — delivered via directory or QR.",
   },
+  register: {
+    title: "Provider credential",
+    subtitle:
+      "Choose which on-chain ASP license (MD-001, MD-002, …) this wallet signs claims with.",
+  },
   history: {
     title: "Claim history",
     subtitle:

@@ -1,11 +1,5 @@
 import { useNavigate } from "react-router-dom";
 
-const CARD_CLASS =
-  "group flex flex-col items-center rounded-lg border border-border/50 bg-muted/15 px-5 py-6 text-center transition-colors hover:border-primary/35 hover:bg-primary/10 w-full";
-
-const ICON_BOX_CLASS =
-  "flex items-center justify-center rounded-md bg-muted/40 text-muted-foreground transition-colors group-hover:bg-primary/20 group-hover:text-primary";
-
 function PatientIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -57,12 +51,10 @@ function RoleCard({
   onClick: () => void;
 }) {
   return (
-    <button type="button" onClick={onClick} className={CARD_CLASS}>
-      <div className={`mb-4 h-12 w-12 ${ICON_BOX_CLASS}`}>{icon}</div>
-      <span className="text-base font-[650] text-foreground">{title}</span>
-      <span className="mt-2 max-w-[14rem] text-sm leading-relaxed text-muted-foreground transition-colors group-hover:text-primary">
-        {description}
-      </span>
+    <button type="button" onClick={onClick} className="choice-card">
+      <div className="choice-card__icon">{icon}</div>
+      <span className="choice-card__title">{title}</span>
+      <span className="choice-card__desc">{description}</span>
     </button>
   );
 }
@@ -71,36 +63,40 @@ export function RoleChooser() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex min-h-[calc(100svh-9rem)] flex-col items-center justify-center px-4 py-10 text-center md:py-14">
-      <img
-        src="/logo.png"
-        alt="ZKlaim"
-        className="h-14 w-auto md:h-[4.25rem]"
-        width={180}
-        height={68}
-      />
+    <div className="landing-hero">
+      <div className="landing-hero__anchor">
+        <div className="landing-hero__intro">
+          <img
+            src="/logo.png"
+            alt="ZKlaim"
+            className="h-14 w-auto md:h-[4.25rem]"
+            width={180}
+            height={68}
+          />
 
-      <h1 className="mt-8 max-w-3xl text-3xl font-[650] leading-[1.12] tracking-tight md:mt-10 md:text-4xl lg:text-[2.75rem]">
-        Private medical claims on Stellar
-      </h1>
-      <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground md:mt-5 md:text-lg">
-        Prove your claim is valid. Receive payment. Reveal nothing about your
-        diagnosis.
-      </p>
+          <h1 className="mt-8 max-w-3xl text-3xl font-[650] leading-[1.12] tracking-tight md:mt-10 md:text-4xl lg:text-[2.75rem]">
+            Private medical claims on Stellar
+          </h1>
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground md:mt-5 md:text-lg">
+            Prove your claim is valid. Receive payment. Reveal nothing about your
+            diagnosis.
+          </p>
+        </div>
 
-      <div className="mt-12 grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2 md:mt-14">
-        <RoleCard
-          icon={<PatientIcon className="h-6 w-6" />}
-          title="Enter as a Patient"
-          description="Set up your identity, receive encrypted claims, and submit privately with ZK proofs."
-          onClick={() => navigate("/patient/identity")}
-        />
-        <RoleCard
-          icon={<ProviderIcon className="h-6 w-6" />}
-          title="Enter as a Provider"
-          description="Register as a licensed physician and send encrypted claim tokens to patients."
-          onClick={() => navigate("/provider/create")}
-        />
+        <div className="landing-hero__cards">
+          <RoleCard
+            icon={<PatientIcon className="h-6 w-6" />}
+            title="Enter as a Patient"
+            description="Set up your identity, receive encrypted claims, and submit privately with ZK proofs."
+            onClick={() => navigate("/patient/identity")}
+          />
+          <RoleCard
+            icon={<ProviderIcon className="h-6 w-6" />}
+            title="Enter as a Provider"
+            description="Register as a licensed physician and send encrypted claim tokens to patients."
+            onClick={() => navigate("/provider/create")}
+          />
+        </div>
       </div>
     </div>
   );
