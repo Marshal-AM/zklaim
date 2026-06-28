@@ -1,0 +1,30 @@
+/** Single-letter ICD-10 chapter labels (demo subset). */
+export const ICD_CATEGORY_NAMES: Record<string, string> = {
+  A: "Infectious diseases",
+  B: "Infectious diseases",
+  C: "Cancers and neoplasms",
+  D: "Blood / immune",
+  E: "Endocrine / metabolic",
+  F: "Mental health",
+  G: "Nervous system",
+  H: "Eye / ear",
+  I: "Circulatory system",
+  J: "Respiratory",
+  K: "Digestive",
+  L: "Skin",
+  M: "Musculoskeletal",
+  N: "Genitourinary",
+  O: "Pregnancy",
+  P: "Perinatal",
+  Q: "Congenital",
+  R: "Symptoms",
+  S: "Injury",
+  T: "Injury / poisoning",
+  V: "External causes",
+  W: "External causes",
+  X: "External causes",
+  Y: "External causes",
+  Z: "Health factors",
+};
+
+export const EXCLUDABLE_CATEGORIES = ["C", "I", "F", "J", "K"] as const;
