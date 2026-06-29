@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useWalletStore } from "../store/wallet";
 import {
   ProviderRegistration,
@@ -47,13 +47,6 @@ export function ProviderRegisterPage() {
           navigate("/provider/create");
         }}
       />
-      {enrolled ? (
-        <p className="text-center text-sm text-muted-foreground">
-          <Link to="/provider/create" className="text-primary hover:underline">
-            Back to create claim
-          </Link>
-        </p>
-      ) : null}
     </div>
   );
 }

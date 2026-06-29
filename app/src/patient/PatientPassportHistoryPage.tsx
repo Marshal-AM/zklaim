@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { SectionCard } from "../components/ui/SectionCard";
 import { loadPassportStore } from "../lib/passportStore";
 import { formatAmountBucketLabel } from "../lib/passport";
@@ -51,9 +50,6 @@ export function PatientPassportHistoryPage() {
           ))}
         </ul>
       )}
-      <Link to="/patient/passport" className="btn-secondary mt-4 inline-flex">
-        Back to passport
-      </Link>
     </SectionCard>
   );
 }

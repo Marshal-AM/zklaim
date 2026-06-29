@@ -12,8 +12,8 @@ import {
   isPassportConfigured,
   readPassportLeafCount,
 } from "../lib/passportContract";
-import { ICD_CATEGORY_NAMES } from "../lib/passportCategories";
 import { toast } from "../lib/toast";
+import { HealthPassportCard } from "./HealthPassportCard";
 
 export function PatientPassportPage() {
   const identity = usePatientStore((s) => s.identity);
@@ -55,35 +55,15 @@ export function PatientPassportPage() {
 
   return (
     <div className="space-y-6">
-      <SectionCard label="Health Passport" title="Your private medical record">
-        <div>
-          <p className="text-xs text-muted-foreground">Claims in passport</p>
-          <p className="text-2xl font-[650] tabular-nums">{leafCount}</p>
-          {onChainCount !== null ? (
-            <p className="mt-1 text-xs text-subtle">
-              On-chain leaves: {onChainCount}
-            </p>
-          ) : null}
-        </div>
+      <div className="flex justify-center">
+        <HealthPassportCard
+          leafCount={leafCount}
+          onChainCount={onChainCount}
+          categories={categories}
+        />
+      </div>
 
-        {categories.length > 0 ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            <span className="font-[650] text-foreground">Categories in history: </span>
-            {categories
-              .map((c) => ICD_CATEGORY_NAMES[c] ?? `Category ${c}`)
-              .join(" · ")}
-          </p>
-        ) : (
-          <p className="mt-4 text-sm text-muted-foreground">
-            No claims in your passport yet. After settlement, click{" "}
-            <span className="font-[650] text-foreground">Add to Passport</span> on
-            the receipt (Submit tab) or on Patient → History. Passport data stays
-            in this browser (OPFS) for the connected patient wallet.
-          </p>
-        )}
-      </SectionCard>
-
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap justify-center gap-3">
         <Link to="/patient/passport/share" className="btn-primary">
           Share a credential
         </Link>

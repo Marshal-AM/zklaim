@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { SectionCard } from "../components/ui/SectionCard";
 import { FormField } from "../components/ui/FormField";
 import { DetailList, DetailRow } from "../components/ui/DetailList";
@@ -120,9 +119,6 @@ export function PatientPassportSharePage() {
             View transaction
           </a>
         </SectionCard>
-        <Link to="/patient/passport" className="btn-secondary inline-flex">
-          Back to passport
-        </Link>
       </div>
     );
   }
@@ -216,10 +212,6 @@ export function PatientPassportSharePage() {
           />
         </StepFormLayout>
       </SectionCard>
-
-      <Link to="/patient/passport" className="btn-secondary inline-flex">
-        Back to passport
-      </Link>
     </div>
   );
 }

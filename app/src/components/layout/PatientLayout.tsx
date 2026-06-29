@@ -10,7 +10,7 @@ const TAB_COPY = {
   identity: {
     title: "Your identity",
     subtitle:
-      "Set up encryption keys and share your Stellar address with your doctor.",
+      "Share your Stellar address with your doctor and track deductible progress — all from this device.",
   },
   inbox: {
     title: "Claim inbox",

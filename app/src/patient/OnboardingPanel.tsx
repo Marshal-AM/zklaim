@@ -13,6 +13,7 @@ import { toast } from "../lib/toast";
 
 export function OnboardingPanel() {
   const setIdentity = usePatientStore((s) => s.setIdentity);
+  const connected = useWalletStore((s) => s.connected);
   const [busy, setBusy] = useState(false);
 
   async function handleOnboard() {
@@ -53,29 +54,49 @@ export function OnboardingPanel() {
   }
 
   return (
-    <SectionCard
-      label="Onboarding"
-      title="Set up your ZKlaim identity"
-    >
-      <p className="text-sm text-muted-foreground">
-        Connect Freighter (testnet), then generate your private policy secrets
-        and encryption keys. Everything stays in your browser (OPFS).
-        {env.isSupabaseEnabled()
-          ? " Your public encryption key is registered so doctors can send claims by Stellar address only."
-          : ""}
-      </p>
+    <SectionCard label="Get started" title="Set up your ZKlaim identity">
+      <div className="identity-onboard-checklist">
+        <div className={`identity-onboard-checklist__item ${connected ? "identity-onboard-checklist__item--done" : ""}`}>
+          <span className="identity-onboard-checklist__bullet" aria-hidden />
+          <div>
+            <p className="font-[650] text-sm">Connect Freighter (testnet)</p>
+            <p className="text-xs text-muted-foreground">
+              {connected
+                ? "Wallet connected — you're ready to continue."
+                : "Click your address in the header to connect and fund USDC."}
+            </p>
+          </div>
+        </div>
+        <div className="identity-onboard-checklist__item">
+          <span className="identity-onboard-checklist__bullet" aria-hidden />
+          <div>
+            <p className="font-[650] text-sm">Generate local encryption keys</p>
+            <p className="text-xs text-muted-foreground">
+              Policy secrets stay in your browser (OPFS) — never on our servers.
+            </p>
+          </div>
+        </div>
+        {env.isSupabaseEnabled() ? (
+          <div className="identity-onboard-checklist__item">
+            <span className="identity-onboard-checklist__bullet" aria-hidden />
+            <div>
+              <p className="font-[650] text-sm">Register in the ZKlaim directory</p>
+              <p className="text-xs text-muted-foreground">
+                Doctors only need your Stellar address to send claims.
+              </p>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
       <button
         type="button"
         disabled={busy}
         onClick={handleOnboard}
-        className="btn-primary"
+        className="btn-primary mt-6 w-full py-3"
       >
-        {busy ? "Setting up…" : "Connect & Generate Identity"}
+        {busy ? "Setting up…" : "Connect & generate identity"}
       </button>
-      <p className="text-xs text-subtle">
-        Click your address in the header to connect Freighter, fund testnet XLM,
-        and enable your USDC trustline before submitting claims.
-      </p>
     </SectionCard>
   );
 }

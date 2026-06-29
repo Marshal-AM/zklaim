@@ -15,6 +15,7 @@ import { WalletHydrator } from "../WalletHydrator";
 import { PatientLayout } from "./PatientLayout";
 import { ProviderLayout } from "./ProviderLayout";
 import { AppNavbar } from "./AppNavbar";
+import { AppBreadcrumbs } from "../ui/AppBreadcrumbs";
 
 export function AppShell() {
   const { pathname } = useLocation();
@@ -38,6 +39,7 @@ export function AppShell() {
               : "w-full min-w-0 max-w-full overflow-x-clip animate-fade-in-up stagger-2"
           }
         >
+          {!isLanding ? <AppBreadcrumbs /> : null}
           <Routes>
             <Route path="/" element={<HomePage />} />
 
