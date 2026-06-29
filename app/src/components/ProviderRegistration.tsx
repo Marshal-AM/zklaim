@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { ensureWalletConnected } from "../lib/walletSession";
-import { ErrorBanner } from "./ErrorBanner";
 import { FormField } from "./ui/FormField";
 import { SectionCard } from "./ui/SectionCard";
 import { env } from "../config/env";
@@ -12,6 +11,37 @@ import {
 } from "../lib/providerProfile";
 import { freighterSignMessage } from "../lib/freighter";
 import { useWalletStore } from "../store/wallet";
+import { toast } from "../lib/toast";
+
+function CredentialIcon({ specialty }: { specialty: string }) {
+  const label =
+    specialty === "PULM"
+      ? "Pulmonology"
+      : specialty === "PSY"
+        ? "Psychiatry"
+        : specialty === "ONC"
+          ? "Oncology"
+          : specialty;
+  return (
+    <svg
+      className="h-6 w-6"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M11 2v2" />
+      <path d="M5 2v2" />
+      <path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1" />
+      <path d="M8 15a6 6 0 0 0 12 0v-3" />
+      <circle cx="20" cy="10" r="2" />
+      <title>{label}</title>
+    </svg>
+  );
+}
 
 interface ProviderRegistrationProps {
   onRegistered: () => void;
@@ -27,7 +57,6 @@ export function ProviderRegistration({
   const address = useWalletStore((s) => s.address);
   const [licenseId, setLicenseId] = useState<DemoLicenseId>(defaultLicenseId);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLicenseId(defaultLicenseId);
@@ -35,7 +64,6 @@ export function ProviderRegistration({
 
   async function handleRegister() {
     setBusy(true);
-    setError(null);
     try {
       const wallet = address ?? (await ensureWalletConnected());
       if (!env.isSupabaseEnabled()) {
@@ -48,9 +76,14 @@ export function ProviderRegistration({
         licenseId,
         signMessage: freighterSignMessage,
       });
+      toast.success(
+        mode === "change"
+          ? `Credential updated to ${licenseId}`
+          : "Provider wallet registered",
+      );
       onRegistered();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {
       setBusy(false);
     }
@@ -58,16 +91,15 @@ export function ProviderRegistration({
 
   if (!env.isSupabaseEnabled()) {
     return (
-      <div className="warning-card space-y-2 p-4 text-sm">
-        <p className="font-[650]">Provider registration requires Supabase</p>
-        <p className="text-xs text-muted-foreground">
+      <SectionCard label="Setup required" title="Provider registration requires Supabase">
+        <p className="text-sm text-muted-foreground">
           Add VITE_SUPABASE_* to .env and run{" "}
           <code className="font-mono text-foreground">002_provider_profiles.sql</code>{" "}
           in the SQL Editor. Or connect the deployer wallet (
           <code className="font-mono text-foreground">INSURER_FUND_ADDRESS</code>
           ).
         </p>
-      </div>
+      </SectionCard>
     );
   }
 
@@ -85,25 +117,34 @@ export function ProviderRegistration({
           ? "Pick which on-chain doctor credential this wallet signs claims with. MD-001 is the pneumonia demo (J18.9)."
           : "Link your Freighter wallet to a demo ASP credential (MD-001 matches the hackathon pneumonia demo). Sign once with Freighter — no JSON editing."}
       </p>
-      {error ? <ErrorBanner message={error} /> : null}
-      <FormField label="Demo license (on-chain ASP)">
-        <select
-          value={licenseId}
-          onChange={(e) => setLicenseId(e.target.value as DemoLicenseId)}
-          className="input-field"
-        >
-          {DEMO_PROVIDER_LICENSES.map((d) => (
-            <option key={d.license_id} value={d.license_id}>
-              {d.label}
-            </option>
-          ))}
-        </select>
+
+      <FormField label="Choose credential" hint="Each option maps to an on-chain ASP leaf.">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {DEMO_PROVIDER_LICENSES.map((d) => {
+            const selected = licenseId === d.license_id;
+            return (
+              <button
+                key={d.license_id}
+                type="button"
+                onClick={() => setLicenseId(d.license_id)}
+                className={`choice-card text-left ${selected ? "choice-card--selected" : ""}`}
+              >
+                <div className="choice-card__icon">
+                  <CredentialIcon specialty={d.specialty_code} />
+                </div>
+                <span className="choice-card__title">{d.license_id}</span>
+                <span className="choice-card__desc">{d.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </FormField>
+
       <button
         type="button"
         disabled={busy}
         onClick={() => void handleRegister()}
-        className="btn-primary w-full"
+        className="btn-primary mt-4 w-full"
       >
         {busy ? "Signing…" : mode === "change" ? "Update credential" : "Register provider wallet"}
       </button>

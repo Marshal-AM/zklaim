@@ -8,19 +8,15 @@ import { registerPatientProfile } from "../lib/patientProfile";
 import { savePatientIdentity } from "../lib/persistence";
 import { usePatientStore, type PatientIdentity } from "../store/patientStore";
 import { useWalletStore } from "../store/wallet";
-import { ErrorBanner } from "../components/ErrorBanner";
 import { SectionCard } from "../components/ui/SectionCard";
+import { toast } from "../lib/toast";
 
 export function OnboardingPanel() {
   const setIdentity = usePatientStore((s) => s.setIdentity);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [registered, setRegistered] = useState(false);
 
   async function handleOnboard() {
     setBusy(true);
-    setError(null);
-    setRegistered(false);
     try {
       const address = await ensureWalletConnected();
       const box = generateBoxKeypair();
@@ -43,10 +39,14 @@ export function OnboardingPanel() {
           boxPublicKey: box.publicKey,
           signMessage: freighterSignMessage,
         });
-        setRegistered(true);
+        toast.success(
+          "Registered in ZKlaim directory. Doctors can find you by your Stellar address.",
+        );
+      } else {
+        toast.success("Identity generated — share your encryption key with your doctor.");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Onboarding failed");
+      toast.error(err instanceof Error ? err.message : "Onboarding failed");
     } finally {
       setBusy(false);
     }
@@ -64,13 +64,6 @@ export function OnboardingPanel() {
           ? " Your public encryption key is registered so doctors can send claims by Stellar address only."
           : ""}
       </p>
-      {error ? <ErrorBanner message={error} /> : null}
-      {registered ? (
-        <div className="success-card px-4 py-3 text-sm text-success">
-          Registered in ZKlaim directory. Doctors can find you by your Stellar
-          address.
-        </div>
-      ) : null}
       <button
         type="button"
         disabled={busy}
@@ -80,8 +73,8 @@ export function OnboardingPanel() {
         {busy ? "Setting up…" : "Connect & Generate Identity"}
       </button>
       <p className="text-xs text-subtle">
-        Use the header wallet button to connect Freighter, fund testnet XLM, and
-        enable your USDC trustline before submitting claims.
+        Click your address in the header to connect Freighter, fund testnet XLM,
+        and enable your USDC trustline before submitting claims.
       </p>
     </SectionCard>
   );

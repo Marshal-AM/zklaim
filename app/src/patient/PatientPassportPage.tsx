@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { DeductibleBar } from "../components/DeductibleBar";
-import { ErrorBanner } from "../components/ErrorBanner";
 import { SectionCard } from "../components/ui/SectionCard";
 import { ensureWalletConnected } from "../lib/walletSession";
 import { usePatientStore } from "../store/patientStore";
@@ -15,12 +13,12 @@ import {
   readPassportLeafCount,
 } from "../lib/passportContract";
 import { ICD_CATEGORY_NAMES } from "../lib/passportCategories";
+import { toast } from "../lib/toast";
 
 export function PatientPassportPage() {
   const identity = usePatientStore((s) => s.identity);
   const [store, setStore] = useState<PassportLocalStore | null>(null);
   const [onChainCount, setOnChainCount] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -35,7 +33,9 @@ export function PatientPassportPage() {
           }
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load passport");
+        toast.error(
+          err instanceof Error ? err.message : "Failed to load passport",
+        );
       }
     })();
   }, [identity]);
@@ -55,23 +55,15 @@ export function PatientPassportPage() {
 
   return (
     <div className="space-y-6">
-      {error ? <ErrorBanner message={error} /> : null}
-
       <SectionCard label="Health Passport" title="Your private medical record">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <p className="text-xs text-muted-foreground">Claims in passport</p>
-            <p className="text-2xl font-[650] tabular-nums">{leafCount}</p>
-            {onChainCount !== null ? (
-              <p className="mt-1 text-xs text-subtle">
-                On-chain leaves: {onChainCount}
-              </p>
-            ) : null}
-          </div>
-          <DeductibleBar
-            metCents={identity.accumulator_met_cents}
-            limitCents={identity.deductible_limit_cents}
-          />
+        <div>
+          <p className="text-xs text-muted-foreground">Claims in passport</p>
+          <p className="text-2xl font-[650] tabular-nums">{leafCount}</p>
+          {onChainCount !== null ? (
+            <p className="mt-1 text-xs text-subtle">
+              On-chain leaves: {onChainCount}
+            </p>
+          ) : null}
         </div>
 
         {categories.length > 0 ? (

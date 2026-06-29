@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ErrorBanner } from "../components/ErrorBanner";
 import { SectionCard } from "../components/ui/SectionCard";
+import { FormField } from "../components/ui/FormField";
+import { DetailList, DetailRow } from "../components/ui/DetailList";
+import { StepFormNav } from "../components/ui/StepFormNav";
+import { StepFormProgress } from "../components/ui/StepFormProgress";
+import { StepFormLayout } from "../components/ui/StepFormLayout";
 import { ensureWalletConnected } from "../lib/walletSession";
 import { loadPassportStore } from "../lib/passportStore";
 import {
@@ -15,15 +19,16 @@ import {
   verifyPassportCredential,
 } from "../lib/passportContract";
 import { passportRootToBigint } from "../lib/passportAppend";
+import { toast } from "../lib/toast";
 
 const TTL_LEDGERS = 50_000;
+const STEPS = ["Verifier", "Categories", "Review"] as const;
 
 export function PatientPassportSharePage() {
+  const [step, setStep] = useState(0);
   const [excluded, setExcluded] = useState<string[]>(["C"]);
   const [verifier, setVerifier] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [credentialId, setCredentialId] = useState<number | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
 
   function toggleCategory(letter: string) {
@@ -34,24 +39,35 @@ export function PatientPassportSharePage() {
     );
   }
 
+  function validateStep(current: number): boolean {
+    if (current === 0 && !verifier.trim()) {
+      toast.error("Enter the verifier Stellar address.");
+      return false;
+    }
+    if (current === 1 && excluded.length === 0) {
+      toast.error("Select at least one category to prove absence.");
+      return false;
+    }
+    return true;
+  }
+
+  function handleNext() {
+    if (!validateStep(step)) return;
+    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  }
+
+  function handleBack() {
+    setStep((s) => Math.max(s - 1, 0));
+  }
+
   async function handleGenerate() {
     if (!isPassportConfigured()) {
-      setError("Passport registry not configured");
+      toast.error("Passport registry not configured");
       return;
     }
-    if (!verifier.trim()) {
-      setError("Enter verifier Stellar address");
-      return;
-    }
-    if (excluded.length === 0) {
-      setError("Select at least one category to prove absence");
-      return;
-    }
+    if (!validateStep(0) || !validateStep(1)) return;
 
     setBusy(true);
-    setError(null);
-    setCredentialId(null);
-
     try {
       const patient = await ensureWalletConnected();
       const store = await loadPassportStore();
@@ -62,8 +78,6 @@ export function PatientPassportSharePage() {
       const rootHex = await readPassportRoot(patient);
       const root = passportRootToBigint(rootHex);
 
-      // One credential per excluded category (circuit proves one at a time)
-      let lastId: number | null = null;
       let lastHash: string | null = null;
       for (const category of excluded) {
         const { proof, publicInputs } = await proveCategoryNonMembership({
@@ -80,16 +94,37 @@ export function PatientPassportSharePage() {
           ttlLedgers: TTL_LEDGERS,
         });
         lastHash = result.hash;
-        // credential id not returned from sim — user verifies via follow-up
-        lastId = lastId === null ? 1 : lastId + 1;
       }
-      setCredentialId(lastId);
       setTxHash(lastHash);
+      toast.success("Credential submitted on-chain");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Credential failed");
+      toast.error(err instanceof Error ? err.message : "Credential failed");
     } finally {
       setBusy(false);
     }
+  }
+
+  if (txHash) {
+    return (
+      <div className="space-y-6">
+        <SectionCard label="Share" title="Credential generated">
+          <p className="text-sm text-muted-foreground">
+            Your verifier can now check absence proofs on-chain.
+          </p>
+          <a
+            href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-outline-primary mt-4 inline-flex text-xs"
+          >
+            View transaction
+          </a>
+        </SectionCard>
+        <Link to="/patient/passport" className="btn-secondary inline-flex">
+          Back to passport
+        </Link>
+      </div>
+    );
   }
 
   return (
@@ -100,60 +135,86 @@ export function PatientPassportSharePage() {
           Verifier must be registered by admin on-chain.
         </p>
 
-        <label className="mt-4 block text-sm">
-          <span className="text-muted-foreground">Verifier Stellar address</span>
-          <input
-            className="input-field mt-1"
-            value={verifier}
-            onChange={(e) => setVerifier(e.target.value)}
-            placeholder="G..."
+        <StepFormLayout size="lg" className="mt-6 space-y-4">
+          <StepFormProgress steps={[...STEPS]} currentStep={step} />
+
+          {step === 0 ? (
+            <FormField
+              label="Verifier Stellar address"
+              hint="Hospital, insurer, or employer wallet registered as a verifier."
+            >
+              <input
+                className="input-field-lg font-mono"
+                value={verifier}
+                onChange={(e) => setVerifier(e.target.value)}
+                placeholder="G…"
+              />
+            </FormField>
+          ) : null}
+
+          {step === 1 ? (
+            <div className="space-y-3">
+              <p className="section-label">Categories to prove absent</p>
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {EXCLUDABLE_CATEGORIES.map((letter) => {
+                  const selected = excluded.includes(letter);
+                  return (
+                    <li key={letter}>
+                      <button
+                        type="button"
+                        onClick={() => toggleCategory(letter)}
+                        className={`choice-card w-full text-left ${
+                          selected ? "choice-card--selected" : ""
+                        }`}
+                      >
+                        <span className="choice-card__title">
+                          {ICD_CATEGORY_NAMES[letter]}
+                        </span>
+                        <span className="choice-card__desc">
+                          Category {letter} — {selected ? "Proving absence" : "Tap to include"}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+
+          {step === 2 ? (
+            <div className="surface-row space-y-3 p-4 text-sm min-w-0">
+              <p className="section-label">Review credential</p>
+              <DetailList>
+                <DetailRow term="Verifier" value={verifier} mono />
+              </DetailList>
+              <div className="min-w-0">
+                <p className="text-sm text-muted-foreground">Excluded categories</p>
+                <div className="mt-1.5 flex min-w-0 flex-wrap gap-1.5">
+                  {excluded.map((c) => (
+                    <span
+                      key={c}
+                      className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-[650] text-primary"
+                    >
+                      {ICD_CATEGORY_NAMES[c]} ({c})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <StepFormNav
+            onBack={step > 0 ? handleBack : undefined}
+            onNext={
+              step < STEPS.length - 1
+                ? handleNext
+                : () => void handleGenerate()
+            }
+            nextLabel={step < STEPS.length - 1 ? "Continue" : "Generate credential"}
+            isLastStep={step === STEPS.length - 1}
+            busy={busy}
           />
-        </label>
-
-        <p className="mt-4 text-sm font-[650]">Categories to prove absent</p>
-        <ul className="mt-2 space-y-2">
-          {EXCLUDABLE_CATEGORIES.map((letter) => (
-            <li key={letter}>
-              <button
-                type="button"
-                onClick={() => toggleCategory(letter)}
-                className={`surface-row w-full px-4 py-2 text-left text-sm ${
-                  excluded.includes(letter) ? "border-primary/40 bg-primary/10" : ""
-                }`}
-              >
-                {ICD_CATEGORY_NAMES[letter]} ({letter}) —{" "}
-                {excluded.includes(letter) ? "Proving" : "Off"}
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        {error ? <ErrorBanner message={error} /> : null}
-
-        {credentialId !== null ? (
-          <div className="success-card mt-4 p-4 text-sm">
-            <p className="font-[650] text-success">Credential submitted on-chain</p>
-            {txHash ? (
-              <a
-                href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-2 inline-block text-primary underline"
-              >
-                View transaction
-              </a>
-            ) : null}
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => void handleGenerate()}
-            disabled={busy}
-            className="btn-primary mt-4 w-full py-3"
-          >
-            {busy ? "Generating credential…" : "Generate credential"}
-          </button>
-        )}
+        </StepFormLayout>
       </SectionCard>
 
       <Link to="/patient/passport" className="btn-secondary inline-flex">

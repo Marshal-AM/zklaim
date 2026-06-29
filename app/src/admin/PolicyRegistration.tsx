@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { fieldToHex, initPoseidon2, poseidon2HashFixed } from "@zklaim/scripts";
 import { ensureWalletConnected } from "../lib/walletSession";
-import { ErrorBanner } from "../components/ErrorBanner";
 import { FormField } from "../components/ui/FormField";
+import { DetailList, DetailRow } from "../components/ui/DetailList";
+import { StepFormNav } from "../components/ui/StepFormNav";
+import { StepFormProgress } from "../components/ui/StepFormProgress";
+import { StepFormLayout } from "../components/ui/StepFormLayout";
 import { registerPolicy } from "../lib/contracts";
 import { fetchJson } from "../lib/hydrateClaim";
 import {
@@ -10,12 +13,15 @@ import {
   DEMO_POLICY_FLOOR_CENTS,
   formatDemoPolicyRange,
 } from "../config/demoPolicy";
+import { toast } from "../lib/toast";
+
+const STEPS = ["Coverage", "Bounds", "Review"] as const;
 
 export function PolicyRegistration() {
+  const [step, setStep] = useState(0);
   const [coverageRoot, setCoverageRoot] = useState("");
   const [boundsHash, setBoundsHash] = useState("");
   const [txHash, setTxHash] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -35,10 +41,30 @@ export function PolicyRegistration() {
     })();
   }, []);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function validateStep(current: number): boolean {
+    if (current === 0 && !coverageRoot.trim()) {
+      toast.error("Coverage root is required.");
+      return false;
+    }
+    if (current === 1 && !boundsHash.trim()) {
+      toast.error("Bounds hash is required.");
+      return false;
+    }
+    return true;
+  }
+
+  function handleNext() {
+    if (!validateStep(step)) return;
+    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  }
+
+  function handleBack() {
+    setStep((s) => Math.max(s - 1, 0));
+  }
+
+  async function handleSubmit() {
+    if (!validateStep(1)) return;
     setBusy(true);
-    setError(null);
     try {
       const insurer = await ensureWalletConnected();
       const result = await registerPolicy({
@@ -48,42 +74,77 @@ export function PolicyRegistration() {
         expiryLedger: 4_000_000_000,
       });
       setTxHash(result.hash);
+      toast.success("Policy registered on-chain");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {
       setBusy(false);
     }
   }
 
+  if (txHash) {
+    return (
+      <div className="surface-row space-y-2 p-4 text-sm">
+        <p className="font-[650] text-success">Policy registered</p>
+        <p className="text-safe-mono text-xs text-muted-foreground">{txHash}</p>
+      </div>
+    );
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      {error ? <ErrorBanner message={error} /> : null}
-      {txHash ? (
-        <p className="truncate font-mono text-xs text-success">{txHash}</p>
-      ) : null}
-      <p className="text-xs text-muted-foreground">
+    <StepFormLayout className="space-y-4">
+      <p className="text-center text-xs text-muted-foreground">
         Demo policy band: {formatDemoPolicyRange()}. Re-register after changing
         bounds so on-chain proofs match patient claims.
       </p>
-      <FormField label="Coverage root (hex)">
-        <input
-          required
-          value={coverageRoot}
-          onChange={(e) => setCoverageRoot(e.target.value)}
-          className="input-field font-mono"
-        />
-      </FormField>
-      <FormField label="Bounds hash (hex)">
-        <input
-          required
-          value={boundsHash}
-          onChange={(e) => setBoundsHash(e.target.value)}
-          className="input-field font-mono"
-        />
-      </FormField>
-      <button type="submit" disabled={busy} className="btn-secondary">
-        register_policy
-      </button>
-    </form>
+
+      <StepFormProgress steps={[...STEPS]} currentStep={step} />
+
+      {step === 0 ? (
+        <FormField
+          label="Coverage root"
+          hint="Merkle root of covered ICD-10 codes from policy_tree.json."
+        >
+          <input
+            required
+            value={coverageRoot}
+            onChange={(e) => setCoverageRoot(e.target.value)}
+            className="input-field-lg font-mono text-xs"
+          />
+        </FormField>
+      ) : null}
+
+      {step === 1 ? (
+        <FormField
+          label="Bounds hash"
+          hint={`Poseidon hash of demo floor/ceiling (${formatDemoPolicyRange()}).`}
+        >
+          <input
+            required
+            value={boundsHash}
+            onChange={(e) => setBoundsHash(e.target.value)}
+            className="input-field-lg font-mono text-xs"
+          />
+        </FormField>
+      ) : null}
+
+      {step === 2 ? (
+        <div className="surface-row space-y-3 p-4 text-sm min-w-0">
+          <p className="section-label">Review policy registration</p>
+          <DetailList>
+            <DetailRow term="Coverage root" value={coverageRoot} mono />
+            <DetailRow term="Bounds hash" value={boundsHash} mono />
+          </DetailList>
+        </div>
+      ) : null}
+
+      <StepFormNav
+        onBack={step > 0 ? handleBack : undefined}
+        onNext={step < STEPS.length - 1 ? handleNext : () => void handleSubmit()}
+        nextLabel={step < STEPS.length - 1 ? "Continue" : "Register policy"}
+        isLastStep={step === STEPS.length - 1}
+        busy={busy}
+      />
+    </StepFormLayout>
   );
 }

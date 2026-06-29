@@ -16,7 +16,7 @@ import { env } from "../config/env";
 import { getSupabase } from "../lib/supabase";
 import { savePatientInbox } from "../lib/persistence";
 import { usePatientStore } from "../store/patientStore";
-import { ErrorBanner } from "../components/ErrorBanner";
+import { toast } from "../lib/toast";
 
 interface ClaimInboxProps {
   patientAddress: string | null;
@@ -31,7 +31,6 @@ export function ClaimInbox({
   const identity = usePatientStore((s) => s.identity);
   const inbox = usePatientStore((s) => s.inbox);
   const addInboxClaim = usePatientStore((s) => s.addInboxClaim);
-  const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   const importFailureMessage = (
@@ -70,12 +69,11 @@ export function ClaimInbox({
           await markDeliveryImported(deliveryId);
         } else {
           const message = importFailureMessage(result.reason);
-          if (message) setError(message);
+          if (message) toast.error(message);
         }
         return false;
       }
 
-      setError(null);
       const next = [...currentInbox, result.entry];
       addInboxClaim(result.entry);
       await savePatientInbox(next);
@@ -103,9 +101,7 @@ export function ClaimInbox({
         await importToken(token, row.id);
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to sync claim inbox",
-      );
+      toast.error(err instanceof Error ? err.message : "Failed to sync claim inbox");
     } finally {
       setSyncing(false);
     }
@@ -124,7 +120,7 @@ export function ClaimInbox({
           setParams(params, { replace: true });
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to import claim");
+        toast.error(err instanceof Error ? err.message : "Failed to import claim");
       }
     })();
   }, [params, identity, importToken, setParams]);
@@ -166,13 +162,21 @@ export function ClaimInbox({
     };
   }, [patientAddress, identity, importToken]);
 
+  useEffect(() => {
+    if (env.isSupabaseEnabled() && identity && !patientAddress) {
+      toast.warning(
+        "Connect Freighter (same wallet you gave your doctor) so we can load claims from the directory.",
+        "inbox-connect-wallet",
+      );
+    }
+  }, [identity, patientAddress]);
+
   const inboxClaims = inbox.filter(
     (c) => c.status === "pending" || c.status === "failed",
   );
 
   return (
     <div className="space-y-4">
-      {error ? <ErrorBanner message={error} /> : null}
       <div className="flex items-center justify-end gap-2">
         {env.isSupabaseEnabled() ? (
           <button
@@ -188,12 +192,6 @@ export function ClaimInbox({
           <span className="text-xs text-subtle">Open a claim to submit</span>
         ) : null}
       </div>
-      {env.isSupabaseEnabled() && identity && !patientAddress ? (
-        <div className="warning-card px-4 py-3 text-sm">
-          Connect Freighter (same wallet you gave your doctor) so we can load
-          claims from the directory.
-        </div>
-      ) : null}
       {inboxClaims.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {env.isSupabaseEnabled()
@@ -215,13 +213,13 @@ export function ClaimInbox({
                   onClick={() => onSelectClaim(claim.id)}
                   className="surface-row w-full px-4 py-3 text-left transition-fluid hover:scale-[1.01] hover:border-primary/35 hover:bg-primary/5"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-[650] text-foreground">
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <p className="min-w-0 flex-1 text-safe font-[650] text-foreground">
                       {summary
                         ? `${summary.amount_label} · ${summary.icd_code} · ${summary.doctor_license_id}`
                         : "Encrypted claim"}
                     </p>
-                    <span className={failed ? "badge-warning" : "badge-primary"}>
+                    <span className={`shrink-0 ${failed ? "badge-warning" : "badge-primary"}`}>
                       {failed ? "Retry" : "Open"}
                     </span>
                   </div>
@@ -233,7 +231,7 @@ export function ClaimInbox({
                     Received {new Date(claim.receivedAt).toLocaleString()}
                     {failed ? " · previous submit failed" : ""}
                   </p>
-                  <p className="mt-1 font-mono text-[10px] text-subtle">
+                  <p className="mt-1 text-safe-mono text-[10px] text-subtle">
                     {shortClaimId(claim.id)}
                   </p>
                 </button>

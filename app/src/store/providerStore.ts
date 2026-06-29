@@ -4,6 +4,13 @@ export interface ProviderHistoryEntry {
   claim_hash: string;
   date: string;
   patientAddress: string;
+  /** Present on claims created after metadata enrichment */
+  icd_code?: string;
+  visit_date?: number;
+  amount_cents?: number;
+  license_id?: string;
+  /** true = Supabase inbox delivery; false = QR / deep link only */
+  delivered_to_inbox?: boolean;
 }
 
 interface ProviderState {

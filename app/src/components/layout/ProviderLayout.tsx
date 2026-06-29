@@ -18,7 +18,7 @@ const TAB_COPY = {
   history: {
     title: "Claim history",
     subtitle:
-      "Claims you have sent — hash and date only. No patient medical data.",
+      "Claims you have sent — amount, ICD-10, visit date, and patient address. No free-text clinical notes.",
   },
 } as const;
 

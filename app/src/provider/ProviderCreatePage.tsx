@@ -24,7 +24,7 @@ export function ProviderCreatePage() {
 
   if (loading) {
     return (
-      <div className="card-padded">
+      <div className="card-padded form-card--spacious form-card--fit">
         <div className="animate-shimmer h-48 rounded-xl" />
         <p className="mt-3 text-center text-sm text-muted-foreground">
           Checking provider enrollment…
@@ -38,7 +38,7 @@ export function ProviderCreatePage() {
   }
 
   return (
-    <SectionCard label="New claim" title="Create encrypted claim">
+    <SectionCard size="fit" className="form-card--spacious">
       <NewClaimForm />
     </SectionCard>
   );

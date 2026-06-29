@@ -7,7 +7,7 @@ interface PageGridProps {
 export function PageGrid({ children, className = "" }: PageGridProps) {
   return (
     <div
-      className={`grid gap-6 lg:grid-cols-2 lg:items-start xl:grid-cols-[1.05fr_1fr] ${className}`}
+      className={`grid min-w-0 max-w-full gap-6 lg:grid-cols-2 lg:items-start xl:grid-cols-[1.05fr_1fr] ${className}`}
     >
       {children}
     </div>
@@ -27,7 +27,7 @@ export function PageColumn({
 }: PageColumnProps) {
   return (
     <div
-      className={`space-y-6 ${sticky ? "lg:sticky lg:top-24 lg:max-h-[calc(100svh-7rem)] lg:overflow-y-auto" : ""} ${className}`}
+      className={`space-y-6 min-w-0 max-w-full ${sticky ? "lg:sticky lg:top-24 lg:max-h-[calc(100svh-7rem)] lg:overflow-y-auto" : ""} ${className}`}
     >
       {children}
     </div>
@@ -42,5 +42,5 @@ export function PageContent({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <section className={`w-full space-y-6 ${className}`}>{children}</section>;
+  return <section className={`w-full min-w-0 max-w-full space-y-6 ${className}`}>{children}</section>;
 }

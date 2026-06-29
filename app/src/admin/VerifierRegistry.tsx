@@ -2,14 +2,13 @@ import { useState } from "react";
 import { useWalletStore } from "../store/wallet";
 import { registerPassportVerifier } from "../lib/passportContract";
 import { isPassportConfigured } from "../lib/passportContract";
-import { ErrorBanner } from "../components/ErrorBanner";
+import { FormField } from "../components/ui/FormField";
+import { toast } from "../lib/toast";
 
 export function VerifierRegistry() {
   const admin = useWalletStore((s) => s.address);
   const [verifier, setVerifier] = useState("");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   if (!isPassportConfigured()) {
     return (
@@ -21,19 +20,20 @@ export function VerifierRegistry() {
   }
 
   async function handleRegister() {
-    if (!admin || !verifier.trim()) return;
+    if (!admin || !verifier.trim()) {
+      toast.error("Connect admin wallet and enter verifier address.");
+      return;
+    }
     setBusy(true);
-    setError(null);
-    setMessage(null);
     try {
       const result = await registerPassportVerifier({
         admin,
         verifier: verifier.trim(),
         permitted: true,
       });
-      setMessage(`Verifier registered. Tx: ${result.hash}`);
+      toast.success(`Verifier registered. Tx: ${result.hash.slice(0, 16)}…`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {
       setBusy(false);
     }
@@ -41,17 +41,14 @@ export function VerifierRegistry() {
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm">
-        <span className="text-muted-foreground">Verifier Stellar address</span>
+      <FormField label="Verifier Stellar address">
         <input
-          className="input-field mt-1"
+          className="input-field-lg font-mono"
           value={verifier}
           onChange={(e) => setVerifier(e.target.value)}
-          placeholder="G..."
+          placeholder="G…"
         />
-      </label>
-      {error ? <ErrorBanner message={error} /> : null}
-      {message ? <p className="text-sm text-success">{message}</p> : null}
+      </FormField>
       <button
         type="button"
         onClick={() => void handleRegister()}

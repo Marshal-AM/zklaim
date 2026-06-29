@@ -5,6 +5,7 @@ import {
   type SetupStepStatus,
 } from "../lib/walletSetup";
 import { useWalletStore } from "../store/wallet";
+import { toast } from "../lib/toast";
 
 const INITIAL_STEPS = [
   { label: "Connect Freighter (testnet)", status: "idle" as SetupStepStatus, detail: "" },
@@ -21,7 +22,6 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
   const { address, connected, usdcBalance, setWallet, disconnect, refreshBalance } =
     useWalletStore();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [steps, setSteps] = useState(INITIAL_STEPS);
 
@@ -58,7 +58,6 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
 
   async function handleConnectAndSetup() {
     setBusy(true);
-    setError(null);
     resetSteps();
 
     try {
@@ -75,7 +74,7 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Wallet setup failed";
-      setError(message);
+      toast.error(message);
       const activeIndex = steps.findIndex((step) => step.status === "active");
       if (activeIndex >= 0) {
         setStep(activeIndex, "error", message);
@@ -86,7 +85,6 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
   }
 
   async function handleConnectOnly() {
-    setError(null);
     setBusy(true);
     try {
       const publicKey = await connectFreighter();
@@ -94,7 +92,7 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
       setStep(0, "done", `${publicKey.slice(0, 8)}…`);
       await fetchBalances();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Connect failed");
+      toast.error(err instanceof Error ? err.message : "Connect failed");
     } finally {
       setBusy(false);
     }
@@ -171,7 +169,7 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
               {connected && address ? (
                 <div className="space-y-2">
                   <p className="section-label">Public key</p>
-                  <code className="surface-row block max-h-24 overflow-y-auto break-all p-3 font-mono text-[11px] leading-relaxed">
+                  <code className="surface-row block max-h-24 overflow-y-auto p-3 text-[11px] leading-relaxed text-safe-mono">
                     {address}
                   </code>
                   <div className="flex flex-wrap gap-2">
@@ -187,7 +185,6 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
                       onClick={() => {
                         disconnect();
                         resetSteps();
-                        setError(null);
                       }}
                       className="btn-outline-primary text-xs"
                     >
@@ -285,11 +282,6 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
         </div>
 
         <footer className="modal-panel__footer space-y-3">
-          {error ? (
-            <div className="error-card px-4 py-3 text-sm text-destructive">
-              {error}
-            </div>
-          ) : null}
           <button
             type="button"
             onClick={() => onOpenChange(false)}

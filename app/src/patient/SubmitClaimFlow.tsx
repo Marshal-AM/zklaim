@@ -8,7 +8,7 @@ import {
 import { fieldToHex } from "@zklaim/scripts";
 import { ensureWalletConnected } from "../lib/walletSession";
 import { ProofProgress } from "../components/ProofProgress";
-import { ErrorBanner } from "../components/ErrorBanner";
+import { toast } from "../lib/toast";
 import { SubmitClaimLogPanel } from "../components/SubmitClaimLogPanel";
 import type { SorobanDebugSink } from "@zklaim/proof-gen/stellar/sorobanDebug";
 import {
@@ -74,7 +74,6 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
   const [stage, setStage] = useState<ProofProgressStage | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [logEntries, setLogEntries] = useState<SubmitClaimLogEntry[]>([]);
   const [receipt, setReceipt] = useState<{
     nullifier: string;
@@ -85,7 +84,6 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
   } | null>(null);
   const [passportBusy, setPassportBusy] = useState(false);
   const [passportAdded, setPassportAdded] = useState(false);
-  const [passportError, setPassportError] = useState<string | null>(null);
 
   const appendLog = useCallback((entry: SubmitClaimLogEntry) => {
     setLogEntries((prev) => [...prev, entry]);
@@ -100,7 +98,6 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
 
   async function handleSubmit() {
     setBusy(true);
-    setError(null);
     setLogEntries([]);
     log.clear();
     setStartedAt(Date.now());
@@ -341,42 +338,42 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
           msg.includes("submit_claim") &&
           msg.includes("get_root"))
       ) {
-        setError(
+        toast.error(
           "Doctor registry (ASP) on-chain does not match your proofs. Run npm run redeploy:asp-escrow, restart the dev server, then retry.",
         );
       } else if (
         msg.includes("fraud non-membership") ||
         (msg.includes("verify_non_membership") && msg.includes("false"))
       ) {
-        setError(
+        toast.error(
           "Fraud blacklist on-chain does not match your proofs. Run npm run redeploy:asp-escrow, restart the dev server, then retry.",
         );
       } else if (
         msg.includes("txSorobanInvalid") ||
         msg.includes("Soroban metadata expired")
       ) {
-        setError(
+        toast.error(
           "Soroban transaction rejected at submit. Retry immediately. If this persists, run npm run redeploy:asp-escrow to deploy contract footprint fixes, then restart the dev server.",
         );
       } else if (msg.includes("Freighter changed the transaction body")) {
-        setError(
+        toast.error(
           "Freighter network mismatch. Switch Freighter to Testnet (Settings → Network), refresh, and retry.",
         );
       } else if (msg.includes("missing Soroban metadata")) {
-        setError(
+        toast.error(
           "Freighter returned a transaction without Soroban data. Update Freighter to the latest version and retry.",
         );
       } else if (
         msg.includes("Error(Auth") &&
         (msg.includes("transfer") || msg.includes("authorization not tied"))
       ) {
-        setError(
+        toast.error(
           "Insurer USDC escrow is not funded or claim escrow is outdated. Run npm run redeploy:asp-escrow, then retry.",
         );
       } else if (msg.includes("Simulation failed") || msg.includes("Provider")) {
-        setError("Provider not verified or claim rejected on-chain.");
+        toast.error("Provider not verified or claim rejected on-chain.");
       } else {
-        setError(msg);
+        toast.error(msg);
       }
       updateInboxClaim(claim.id, { status: "failed" });
       log.warn("Inbox claim marked failed", { claimId: claim.id });
@@ -388,7 +385,6 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
   async function handleAddToPassport() {
     if (!receipt) return;
     setPassportBusy(true);
-    setPassportError(null);
     try {
       await appendSettlementToPassport({
         patientAddress: receipt.patientAddress,
@@ -397,10 +393,9 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         payload: receipt.payload,
       });
       setPassportAdded(true);
+      toast.success("Claim added to your Health Passport");
     } catch (err) {
-      setPassportError(
-        err instanceof Error ? err.message : "Failed to add to passport",
-      );
+      toast.error(err instanceof Error ? err.message : "Failed to add to passport");
     } finally {
       setPassportBusy(false);
     }
@@ -416,7 +411,7 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
           <p className="text-3xl font-[650] tabular-nums tracking-tight">
             +{formatUsdc(receipt.usdcReceived)}
           </p>
-          <p className="break-all font-mono text-xs text-muted-foreground">
+          <p className="text-safe-mono text-xs text-muted-foreground">
             Confirmation: {receipt.nullifier}
           </p>
           <a
@@ -438,7 +433,6 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
               privately, from this app. Settlement does not add claims
               automatically — you must confirm below.
             </p>
-            {passportError ? <ErrorBanner message={passportError} /> : null}
             {passportAdded ? (
               <p className="text-sm text-success">
                 Claim added to your passport. View it in the Passport tab.
@@ -510,7 +504,6 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
           ID {shortClaimId(claim.id)}
         </p>
       </div>
-      {error && <ErrorBanner message={error} />}
       {!busy && !stage && (
         <button
           type="button"

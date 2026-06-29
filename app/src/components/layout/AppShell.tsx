@@ -21,21 +21,21 @@ export function AppShell() {
   const isLanding = pathname === "/";
 
   return (
-    <div className="flex min-h-screen flex-col bg-background select-none">
+    <div className="flex min-h-screen min-w-0 flex-col overflow-x-clip bg-background select-none">
       <WalletHydrator />
       <AppNavbar />
       <main
         className={
           isLanding
             ? "flex flex-1 flex-col px-[var(--page-gutter)]"
-            : "mx-auto flex w-full max-w-[var(--page-max)] flex-col px-[var(--page-gutter)] py-8"
+            : "mx-auto flex w-full min-w-0 max-w-[var(--page-max)] flex-col overflow-x-clip px-[var(--page-gutter)] py-8"
         }
       >
         <div
           className={
             isLanding
               ? "flex w-full max-w-[var(--page-max)] flex-1 flex-col animate-fade-in-up stagger-2"
-              : "w-full animate-fade-in-up stagger-2"
+              : "w-full min-w-0 max-w-full overflow-x-clip animate-fade-in-up stagger-2"
           }
         >
           <Routes>

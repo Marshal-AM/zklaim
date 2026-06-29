@@ -35,7 +35,7 @@ export function IdentityCard() {
       {address ? (
         <div className="space-y-2">
           <p className="section-label">Stellar address</p>
-          <code className="surface-row block break-all p-3 font-mono text-xs">
+          <code className="surface-row block p-3 text-safe-mono text-xs">
             {address}
           </code>
           <button
@@ -49,14 +49,14 @@ export function IdentityCard() {
       ) : identity.stellar_address ? (
         <div className="space-y-2">
           <p className="section-label">Stellar address</p>
-          <code className="surface-row block break-all p-3 font-mono text-xs">
+          <code className="surface-row block p-3 text-safe-mono text-xs">
             {identity.stellar_address}
           </code>
         </div>
       ) : (
-        <div className="warning-card px-4 py-3 text-sm">
+        <p className="text-sm text-muted-foreground">
           Connect Freighter to show your Stellar address for doctors.
-        </div>
+        </p>
       )}
       <div className="space-y-2">
         <p className="section-label">Public encryption key</p>
