@@ -5,6 +5,8 @@ const STAGES: { key: ProofProgressStage; label: string; index: number }[] = [
   { key: "amount", label: "Proving amount range", index: 2 },
   { key: "doctor", label: "Verifying doctor", index: 3 },
   { key: "accum", label: "Updating deductible", index: 4 },
+  { key: "fraud", label: "Fraud ASP check", index: 5 },
+  { key: "nullifier", label: "Finalizing nullifier", index: 6 },
 ];
 
 interface ProofProgressProps {
@@ -43,7 +45,7 @@ export function ProofProgress({ currentStage, startedAt }: ProofProgressProps) {
                   done ? "text-primary" : "text-subtle"
                 }`}
               >
-                {stage.index}/4
+                {stage.index}/6
               </span>
               <span className={done ? "text-foreground" : "text-muted-foreground"}>
                 {stage.label}
@@ -55,7 +57,7 @@ export function ProofProgress({ currentStage, startedAt }: ProofProgressProps) {
       <div className="h-2 overflow-hidden rounded-full bg-muted">
         <div
           className="h-full bg-primary transition-fluid"
-          style={{ width: `${(currentIndex / 4) * 100}%` }}
+          style={{ width: `${(currentIndex / 6) * 100}%` }}
         />
       </div>
     </div>

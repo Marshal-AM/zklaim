@@ -21,6 +21,9 @@ export const env = {
   usdcTokenId: () => requireEnv("VITE_USDC_TOKEN_CONTRACT_ID"),
   usdcIssuer: () => requireEnv("VITE_USDC_ISSUER"),
   insurerFundAddress: () => requireEnv("VITE_INSURER_FUND_ADDRESS"),
+  /** Base64 NaCl box public key for insurer selective-disclosure (optional). */
+  insurerViewPublicKey: () => import.meta.env.VITE_INSURER_VIEW_PUBLIC_KEY ?? "",
+  hasInsurerViewKey: () => Boolean(import.meta.env.VITE_INSURER_VIEW_PUBLIC_KEY),
   supabaseUrl: () => import.meta.env.VITE_SUPABASE_URL ?? "",
   supabaseAnonKey: () => import.meta.env.VITE_SUPABASE_ANON_KEY ?? "",
   isSupabaseEnabled: () =>

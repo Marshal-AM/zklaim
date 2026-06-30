@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { computeClaimHash, fieldFromHex } from "@zklaim/scripts";
 import { ensureWalletConnected } from "../lib/walletSession";
 import { useProviderEnrollment } from "../components/ProviderRegistration";
 import { QrDisplay } from "../components/QrDisplay";
+import { ActivityLogPanel } from "../components/ActivityLogPanel";
 import { DetailList, DetailRow } from "../components/ui/DetailList";
 import { FormField } from "../components/ui/FormField";
 import { CustomSelect } from "../components/ui/CustomSelect";
@@ -16,6 +17,7 @@ import {
   encodeTokenForUrl,
   canonicalClaimPayload,
   type ClaimTokenPayload,
+  type EncryptedClaimToken,
 } from "../lib/claimToken";
 import { insertClaimDelivery } from "../lib/claimDelivery";
 import { randomFieldHex, fetchJson } from "../lib/hydrateClaim";
@@ -42,6 +44,10 @@ import {
   visitYmdToDisplay,
   visitYmdToNumber,
 } from "../lib/visitDate";
+import {
+  createActivityLogger,
+  type ActivityLogEntry,
+} from "../lib/activityLog";
 
 interface PolicyLeaf {
   icd_code: string;
@@ -65,7 +71,19 @@ export function NewClaimForm() {
     deepLink: string;
     cid: string;
     supabaseDelivered: boolean;
+    insurerViewAttached: boolean;
+    token: EncryptedClaimToken;
   } | null>(null);
+  const [logEntries, setLogEntries] = useState<ActivityLogEntry[]>([]);
+
+  const appendLog = useCallback((entry: ActivityLogEntry) => {
+    setLogEntries((prev) => [...prev, entry]);
+  }, []);
+
+  const log = useMemo(
+    () => createActivityLogger(appendLog, { prefix: "[ZKlaim Provider]" }),
+    [appendLog],
+  );
 
   const supabaseEnabled = env.isSupabaseEnabled();
 
@@ -143,13 +161,34 @@ export function NewClaimForm() {
   async function handleSubmit() {
     if (!validateStep(2)) return;
     setBusy(true);
+    setLogEntries([]);
+    log.clear();
+    log.info("Create claim started", {
+      patientAddress,
+      icdCode,
+      visitDate,
+      amount,
+      supabaseEnabled,
+      insurerViewConfigured: env.hasInsurerViewKey(),
+    });
     try {
+      log.info("Connecting provider Freighter wallet…");
       const doctorAddress = await ensureWalletConnected();
+      log.success("Provider wallet connected", { doctorAddress });
       if (!enrolled || !physician) {
         throw new Error("Provider not verified — register your wallet first");
       }
+      log.success("ASP credential loaded", {
+        license_id: physician.license_id,
+        specialty: physician.specialty_code,
+      });
 
+      log.info("Resolving patient encryption key…");
       const boxKey = await resolvePatientBoxKey();
+      log.success("Patient box public key resolved", {
+        key_preview: `${boxKey.slice(0, 12)}…`,
+      });
+
       const patientStellar = normalizeStellarAddress(patientAddress);
       const nonce = randomFieldHex();
       const blinding = randomFieldHex();
@@ -172,14 +211,39 @@ export function NewClaimForm() {
       };
 
       const canonical = canonicalClaimPayload({ ...base, doctor_signature: "" });
+      log.info("Requesting Freighter message signature for claim attestation…");
       const signature = await freighterSignMessage(canonical, doctorAddress);
+      log.success("Doctor attestation signed", {
+        signature_preview: `${signature.slice(0, 16)}…`,
+      });
+
       const payload: ClaimTokenPayload = { ...base, doctor_signature: signature };
-      const encrypted = await encryptClaimToken(payload, boxKey);
+      const insurerViewPublicKey = env.insurerViewPublicKey();
+      log.info("Encrypting claim token for patient (NaCl box)…");
+      const encrypted = await encryptClaimToken(payload, boxKey, {
+        insurerViewPublicKey: insurerViewPublicKey || undefined,
+      });
+      if (encrypted.insurer_view) {
+        log.success("Insurer view-key envelope attached (selective disclosure)", {
+          insurer_fund: env.insurerFundAddress(),
+        });
+      } else {
+        log.warn(
+          "No insurer view key configured — set VITE_INSURER_VIEW_PUBLIC_KEY for selective disclosure",
+        );
+      }
+      log.success("Claim ciphertext sealed", {
+        content_address: encrypted.cid,
+        ciphertext_bytes: encrypted.ciphertext.length,
+      });
+
       const encoded = encodeTokenForUrl(encrypted);
       const deepLink = `${window.location.origin}/?claim=${encoded}`;
+      log.success("Deep link generated", { deepLink_preview: `${deepLink.slice(0, 48)}…` });
 
       let supabaseDelivered = false;
       if (supabaseEnabled) {
+        log.info("Inserting encrypted delivery into Supabase inbox…");
         await insertClaimDelivery({
           patientAddress: patientStellar,
           doctorAddress,
@@ -187,9 +251,16 @@ export function NewClaimForm() {
           claimNonce: nonce,
         });
         supabaseDelivered = true;
+        log.success("Supabase claim_deliveries row inserted");
       }
 
-      setDelivery({ deepLink, cid: encrypted.cid, supabaseDelivered });
+      setDelivery({
+        deepLink,
+        cid: encrypted.cid,
+        supabaseDelivered,
+        insurerViewAttached: Boolean(encrypted.insurer_view),
+        token: encrypted,
+      });
       toast.success(
         supabaseDelivered
           ? "Claim signed and delivered to patient inbox"
@@ -201,6 +272,10 @@ export function NewClaimForm() {
         policyId: payload.policy_id,
         nonce: fieldFromHex(nonce),
       });
+      log.success("Claim hash computed (links ZK circuits)", {
+        claim_hash: claimHash.toString(16),
+      });
+
       const entry = {
         claim_hash: claimHash.toString(16),
         date: new Date().toISOString(),
@@ -214,7 +289,9 @@ export function NewClaimForm() {
       addHistory(entry);
       const hist = await loadProviderHistory();
       await saveProviderHistory([entry, ...hist]);
+      log.success("Provider local history updated");
     } catch (err) {
+      log.error("Create claim failed", err);
       toast.error(err instanceof Error ? err.message : "Failed to create claim");
     } finally {
       setBusy(false);
@@ -230,8 +307,31 @@ export function NewClaimForm() {
           label="Patient can also open this link"
         />
         <p className="text-safe-mono text-xs text-subtle">
-          IPFS CID commitment: {delivery.cid}
+          Content address: {delivery.cid}
         </p>
+        {delivery.insurerViewAttached ? (
+          <p className="text-xs text-muted-foreground">
+            Insurer selective-disclosure envelope included (view key).
+          </p>
+        ) : null}
+        {delivery.insurerViewAttached ? (
+          <button
+            type="button"
+            className="btn-secondary w-full py-2.5 text-sm"
+            onClick={async () => {
+              const json = JSON.stringify(delivery.token, null, 2);
+              try {
+                await navigator.clipboard.writeText(json);
+                toast.success("Encrypted token copied — paste in Admin → Insurer audit");
+              } catch {
+                toast.error("Could not copy to clipboard");
+              }
+            }}
+          >
+            Copy for insurer audit
+          </button>
+        ) : null}
+        <ActivityLogPanel entries={logEntries} title="Provider activity log" />
       </StepFormLayout>
     );
   }
@@ -356,6 +456,11 @@ export function NewClaimForm() {
         isLastStep={step === STEPS.length - 1}
         nextDisabled={!enrolled}
         busy={busy}
+      />
+      <ActivityLogPanel
+        entries={logEntries}
+        title="Provider activity log"
+        emptyMessage="Activity from signing and delivery will appear here."
       />
     </StepFormLayout>
   );

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { decodeTokenFromUrl, type EncryptedClaimToken } from "../lib/claimToken";
 import {
@@ -16,6 +16,8 @@ import { env } from "../config/env";
 import { getSupabase } from "../lib/supabase";
 import { savePatientInbox } from "../lib/persistence";
 import { usePatientStore } from "../store/patientStore";
+import { ActivityLogPanel } from "../components/ActivityLogPanel";
+import { createActivityLogger, type ActivityLogEntry } from "../lib/activityLog";
 import { toast } from "../lib/toast";
 
 interface ClaimInboxProps {
@@ -32,6 +34,14 @@ export function ClaimInbox({
   const inbox = usePatientStore((s) => s.inbox);
   const addInboxClaim = usePatientStore((s) => s.addInboxClaim);
   const [syncing, setSyncing] = useState(false);
+  const [logEntries, setLogEntries] = useState<ActivityLogEntry[]>([]);
+  const appendLog = useCallback((e: ActivityLogEntry) => {
+    setLogEntries((prev) => [...prev, e]);
+  }, []);
+  const log = useMemo(
+    () => createActivityLogger(appendLog, { prefix: "[ZKlaim Inbox]" }),
+    [appendLog],
+  );
 
   const importFailureMessage = (
     reason: "duplicate" | "invalid_signature" | "decrypt_failed",
@@ -70,6 +80,7 @@ export function ClaimInbox({
         } else {
           const message = importFailureMessage(result.reason);
           if (message) toast.error(message);
+          log.warn("Claim import rejected", { reason: result.reason, deliveryId });
         }
         return false;
       }
@@ -78,6 +89,12 @@ export function ClaimInbox({
       addInboxClaim(result.entry);
       await savePatientInbox(next);
       onSelectClaim(result.entry.id);
+      log.success("Claim imported to inbox", {
+        claimId: result.entry.id,
+        shortId: shortClaimId(result.entry.id),
+        deliveryId: deliveryId ?? null,
+        content_address: token.cid,
+      });
 
       if (deliveryId) {
         await markDeliveryImported(deliveryId);
@@ -85,7 +102,7 @@ export function ClaimInbox({
 
       return true;
     },
-    [identity, addInboxClaim, onSelectClaim],
+    [identity, addInboxClaim, onSelectClaim, log],
   );
 
   const syncSupabaseDeliveries = useCallback(async () => {
@@ -94,18 +111,22 @@ export function ClaimInbox({
     if (!patientAddress) return;
 
     setSyncing(true);
+    log.info("Syncing Supabase claim_deliveries…", { patientAddress });
     try {
       const rows = await fetchPendingDeliveries(patientAddress);
+      log.info("Supabase fetch complete", { pending_count: rows.length });
       for (const row of rows) {
         const token = rowToEncryptedToken(row);
         await importToken(token, row.id);
       }
+      log.success("Inbox sync finished");
     } catch (err) {
+      log.error("Inbox sync failed", err);
       toast.error(err instanceof Error ? err.message : "Failed to sync claim inbox");
     } finally {
       setSyncing(false);
     }
-  }, [identity, patientAddress, importToken]);
+  }, [identity, patientAddress, importToken, log]);
 
   useEffect(() => {
     const claimParam = params.get("claim");
@@ -113,17 +134,20 @@ export function ClaimInbox({
 
     void (async () => {
       try {
+        log.info("Deep link claim import started");
         const token = decodeTokenFromUrl(claimParam);
         const imported = await importToken(token);
         if (imported) {
           params.delete("claim");
           setParams(params, { replace: true });
+          log.success("Deep link claim imported");
         }
       } catch (err) {
+        log.error("Deep link import failed", err);
         toast.error(err instanceof Error ? err.message : "Failed to import claim");
       }
     })();
-  }, [params, identity, importToken, setParams]);
+  }, [params, identity, importToken, setParams, log]);
 
   useEffect(() => {
     void syncSupabaseDeliveries();
@@ -240,6 +264,12 @@ export function ClaimInbox({
           })}
         </ul>
       )}
+      <ActivityLogPanel
+        entries={logEntries}
+        title="Inbox activity log"
+        emptyMessage="Sync and import events will appear here."
+        className="mt-4"
+      />
     </div>
   );
 }

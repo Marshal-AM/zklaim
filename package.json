@@ -37,7 +37,8 @@
     "submit:demo-claim": "bash scripts/testnet_submit_claim.sh testnet aim-soroban-deployer",
     "diagnose:soroban": "npx tsx scripts/diagnose_soroban_footprint.ts",
     "fund:usdc": "wsl bash ./scripts/fund_usdc.sh",
-    "redeploy:escrow-usdc": "wsl bash ./scripts/redeploy_escrow_circle_usdc.sh"
+    "redeploy:escrow-usdc": "wsl bash ./scripts/redeploy_escrow_circle_usdc.sh",
+    "generate:insurer-view-keys": "node scripts/generate_insurer_view_keys.mjs"
   },
   "engines": {
     "node": ">=20"

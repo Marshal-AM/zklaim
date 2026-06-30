@@ -93,14 +93,17 @@ async function proveWithMode(
   return runProveJob(circuit, inputs);
 }
 
-function trackProgress<T>(
+function trackProgress(
   stage: ProofProgressStage,
   index: ProofProgressIndex,
+  circuit: CircuitName,
   onProgress: GenerateClaimProofsOptions["onProgress"],
-  promise: Promise<T>,
-): Promise<T> {
+  onCircuitComplete: GenerateClaimProofsOptions["onCircuitComplete"],
+  promise: Promise<CircuitProofResult>,
+): Promise<CircuitProofResult> {
   return promise.then((result) => {
     onProgress?.(stage, index);
+    onCircuitComplete?.(circuit, result);
     return result;
   });
 }
@@ -111,6 +114,7 @@ export async function generateClaimProofs(
 ): Promise<ProofPackage> {
   const useWorkers = options.useWorkers ?? true;
   const onProgress = options.onProgress;
+  const onCircuitComplete = options.onCircuitComplete;
   await initPoseidon2();
 
   const claim_hash = await computeClaimHash({
@@ -170,19 +174,25 @@ export async function generateClaimProofs(
     trackProgress(
       "policy",
       1,
+      "policy_validity",
       onProgress,
+      onCircuitComplete,
       proveWithMode("policy_validity", policyInputs, useWorkers),
     ),
     trackProgress(
       "amount",
       2,
+      "amount_range",
       onProgress,
+      onCircuitComplete,
       proveWithMode("amount_range", amountInputs, useWorkers),
     ),
     trackProgress(
       "doctor",
       3,
+      "doctor_attestation",
       onProgress,
+      onCircuitComplete,
       proveWithMode("doctor_attestation", doctorInputs, useWorkers),
     ),
   ]);
@@ -202,7 +212,9 @@ export async function generateClaimProofs(
   const accumResult = await trackProgress(
     "accum",
     4,
+    "deductible_accumulator",
     onProgress,
+    onCircuitComplete,
     proveWithMode("deductible_accumulator", accumInputs, useWorkers),
   );
 
@@ -215,6 +227,7 @@ export async function generateClaimProofs(
   onProgress?.("nullifier", 5);
 
   const fraud = await resolveFraudProof(claim, options.fraudTreeJson);
+  onProgress?.("fraud", 6);
 
   return {
     policyResult,

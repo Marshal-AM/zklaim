@@ -1,5 +1,0 @@
-cannot find a Nargo.toml for /mnt/c/Users/MSI/Desktop/zklaim
-sh: 1: jq: not found
-
-gzip: stdin: unexpected end of file
-Input is not large enough

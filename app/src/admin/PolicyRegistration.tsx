@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { fieldToHex, initPoseidon2, poseidon2HashFixed } from "@zklaim/scripts";
 import { ensureWalletConnected } from "../lib/walletSession";
 import { FormField } from "../components/ui/FormField";
@@ -6,7 +6,9 @@ import { DetailList, DetailRow } from "../components/ui/DetailList";
 import { StepFormNav } from "../components/ui/StepFormNav";
 import { StepFormProgress } from "../components/ui/StepFormProgress";
 import { StepFormLayout } from "../components/ui/StepFormLayout";
+import { ActivityLogPanel } from "../components/ActivityLogPanel";
 import { registerPolicy } from "../lib/contracts";
+import { createActivityLogger, type ActivityLogEntry } from "../lib/activityLog";
 import { fetchJson } from "../lib/hydrateClaim";
 import {
   DEMO_POLICY_CEILING_CENTS,
@@ -23,6 +25,14 @@ export function PolicyRegistration() {
   const [boundsHash, setBoundsHash] = useState("");
   const [txHash, setTxHash] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [logEntries, setLogEntries] = useState<ActivityLogEntry[]>([]);
+  const appendLog = useCallback((e: ActivityLogEntry) => {
+    setLogEntries((prev) => [...prev, e]);
+  }, []);
+  const log = useMemo(
+    () => createActivityLogger(appendLog, { prefix: "[ZKlaim Admin]" }),
+    [appendLog],
+  );
 
   useEffect(() => {
     void fetchJson<{ root: string }>("/trees/policy_tree.json").then((t) =>
@@ -65,17 +75,23 @@ export function PolicyRegistration() {
   async function handleSubmit() {
     if (!validateStep(1)) return;
     setBusy(true);
+    setLogEntries([]);
+    log.clear();
+    log.info("register_policy started", { coverageRoot, boundsHash });
     try {
       const insurer = await ensureWalletConnected();
+      log.success("Insurer wallet connected", { insurer });
       const result = await registerPolicy({
         insurer,
         coverageRoot,
         boundsHash,
         expiryLedger: 4_000_000_000,
+        log,
       });
       setTxHash(result.hash);
       toast.success("Policy registered on-chain");
     } catch (err) {
+      log.error("register_policy failed", err);
       toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {
       setBusy(false);
@@ -86,7 +102,14 @@ export function PolicyRegistration() {
     return (
       <div className="surface-row space-y-2 p-4 text-sm">
         <p className="font-[650] text-success">Policy registered</p>
-        <p className="text-safe-mono text-xs text-muted-foreground">{txHash}</p>
+        <a
+          href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
+          target="_blank"
+          rel="noreferrer"
+          className="block text-safe-mono text-xs text-primary underline"
+        >
+          {txHash}
+        </a>
       </div>
     );
   }
@@ -145,6 +168,7 @@ export function PolicyRegistration() {
         isLastStep={step === STEPS.length - 1}
         busy={busy}
       />
+      <ActivityLogPanel entries={logEntries} title="Admin activity log" />
     </StepFormLayout>
   );
 }

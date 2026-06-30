@@ -99,13 +99,15 @@ export type ProofProgressStage =
   | "amount"
   | "doctor"
   | "accum"
+  | "fraud"
   | "nullifier";
 
-export type ProofProgressIndex = 1 | 2 | 3 | 4 | 5;
+export type ProofProgressIndex = 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface GenerateClaimProofsOptions {
   useWorkers?: boolean;
   onProgress?: (stage: ProofProgressStage, index: ProofProgressIndex) => void;
+  onCircuitComplete?: (circuit: CircuitName, result: CircuitProofResult) => void;
   fraudTreeJson?: FraudTreeArtifact;
 }
 

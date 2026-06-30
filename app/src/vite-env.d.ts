@@ -11,6 +11,9 @@ interface ImportMetaEnv {
   readonly VITE_USDC_TOKEN_CONTRACT_ID: string;
   readonly VITE_USDC_ISSUER: string;
   readonly VITE_INSURER_FUND_ADDRESS: string;
+  readonly VITE_INSURER_VIEW_PUBLIC_KEY?: string;
+  /** Demo only — exposes insurer decrypt key in the client bundle. */
+  readonly VITE_INSURER_VIEW_SECRET_KEY?: string;
   readonly VITE_SUPABASE_URL?: string;
   readonly VITE_SUPABASE_ANON_KEY?: string;
   readonly VITE_FREIGHTER_DEBUG?: string;

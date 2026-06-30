@@ -1,6 +1,9 @@
 import nacl from "tweetnacl";
 import { encodeBase64, decodeBase64 } from "tweetnacl-util";
 
+import type { InsurerViewEnvelope } from "./viewKey";
+import { encryptForInsurerView } from "./viewKey";
+
 function u8(data: Uint8Array | Buffer): Uint8Array {
   return data instanceof Uint8Array ? data : new Uint8Array(data);
 }
@@ -26,7 +29,14 @@ export interface EncryptedClaimToken {
   ephemeralPublicKey: string;
   nonce: string;
   ciphertext: string;
+  /** Content-addressed hash of patient ciphertext (not IPFS unless pinned separately). */
   cid: string;
+  /** Optional insurer selective-disclosure envelope. */
+  insurer_view?: InsurerViewEnvelope;
+}
+
+export interface EncryptClaimTokenOptions {
+  insurerViewPublicKey?: string;
 }
 
 export function generateBoxKeypair(): {
@@ -57,17 +67,25 @@ export function canonicalClaimPayload(payload: ClaimTokenPayload): string {
   });
 }
 
-export async function computeCid(ciphertext: Uint8Array): Promise<string> {
+export async function computeContentAddress(
+  ciphertext: Uint8Array,
+): Promise<string> {
   const hash = await crypto.subtle.digest("SHA-256", new Uint8Array(ciphertext));
   const hex = Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
-  return `ipfs://${hex}`;
+  return `zklaim://sha256/${hex}`;
+}
+
+/** @deprecated Use computeContentAddress */
+export async function computeCid(ciphertext: Uint8Array): Promise<string> {
+  return computeContentAddress(ciphertext);
 }
 
 export async function encryptClaimToken(
   payload: ClaimTokenPayload,
   patientBoxPublicKey: string,
+  options: EncryptClaimTokenOptions = {},
 ): Promise<EncryptedClaimToken> {
   const patientPub = u8(decodeBase64(patientBoxPublicKey));
   const ephemeral = nacl.box.keyPair();
@@ -79,13 +97,17 @@ export async function encryptClaimToken(
     patientPub,
     ephemeral.secretKey,
   );
-  const cid = await computeCid(ciphertext);
+  const cid = await computeContentAddress(ciphertext);
+  const insurer_view = options.insurerViewPublicKey
+    ? encryptForInsurerView(JSON.stringify(payload), options.insurerViewPublicKey)
+    : undefined;
   return {
     version: 1,
     ephemeralPublicKey: encodeBase64(ephemeral.publicKey),
     nonce: encodeBase64(nonce),
     ciphertext: encodeBase64(ciphertext),
     cid,
+    ...(insurer_view ? { insurer_view } : {}),
   };
 }
 

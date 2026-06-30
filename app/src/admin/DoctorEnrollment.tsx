@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ensureWalletConnected } from "../lib/walletSession";
 import { FormField } from "../components/ui/FormField";
 import { DetailList, DetailRow } from "../components/ui/DetailList";
 import { StepFormNav } from "../components/ui/StepFormNav";
 import { StepFormProgress } from "../components/ui/StepFormProgress";
 import { StepFormLayout } from "../components/ui/StepFormLayout";
+import { ActivityLogPanel } from "../components/ActivityLogPanel";
 import { enrollDoctor } from "../lib/contracts";
+import { createActivityLogger, type ActivityLogEntry } from "../lib/activityLog";
 import { toast } from "../lib/toast";
 
 const STEPS = ["License", "Specialty", "Jurisdiction", "Review"] as const;
@@ -17,6 +19,14 @@ export function DoctorEnrollment() {
   const [jurisdiction, setJurisdiction] = useState("");
   const [txHash, setTxHash] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [logEntries, setLogEntries] = useState<ActivityLogEntry[]>([]);
+  const appendLog = useCallback((e: ActivityLogEntry) => {
+    setLogEntries((prev) => [...prev, e]);
+  }, []);
+  const log = useMemo(
+    () => createActivityLogger(appendLog, { prefix: "[ZKlaim Admin]" }),
+    [appendLog],
+  );
 
   function validateStep(current: number): boolean {
     if (current === 0 && !licenseHash.trim()) {
@@ -46,17 +56,23 @@ export function DoctorEnrollment() {
   async function handleSubmit() {
     if (!validateStep(2)) return;
     setBusy(true);
+    setLogEntries([]);
+    log.clear();
+    log.info("enroll_doctor started", { licenseHash, specialty, jurisdiction });
     try {
       const admin = await ensureWalletConnected();
+      log.success("Admin wallet connected", { admin });
       const result = await enrollDoctor({
         admin,
         licenseHash: licenseHash.replace(/^0x/, ""),
         specialtyCode: specialty,
         jurisdictionHash: jurisdiction.replace(/^0x/, ""),
+        log,
       });
       setTxHash(result.hash);
       toast.success("Doctor enrolled on-chain");
     } catch (err) {
+      log.error("enroll_doctor failed", err);
       toast.error(err instanceof Error ? err.message : "Enrollment failed");
     } finally {
       setBusy(false);
@@ -147,6 +163,7 @@ export function DoctorEnrollment() {
         isLastStep={step === STEPS.length - 1}
         busy={busy}
       />
+      <ActivityLogPanel entries={logEntries} title="Admin activity log" />
     </StepFormLayout>
   );
 }

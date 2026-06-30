@@ -42,9 +42,9 @@ import {
 } from "../config/demoPolicy";
 import { env } from "../config/env";
 import {
-  createSubmitClaimLogger,
-  type SubmitClaimLogEntry,
-} from "../lib/submitClaimLog";
+  createActivityLogger,
+  type ActivityLogEntry,
+} from "../lib/activityLog";
 import {
   usePatientStore,
   type InboxClaim,
@@ -60,6 +60,7 @@ const PROOF_STAGE_LABELS: Record<ProofProgressStage, string> = {
   amount: "ZK proof 2/4 — amount range",
   doctor: "ZK proof 3/4 — doctor attestation",
   accum: "ZK proof 4/4 — deductible accumulator",
+  fraud: "Fraud ASP non-membership proof",
   nullifier: "Computing claim nullifier",
 };
 
@@ -74,7 +75,7 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
   const [stage, setStage] = useState<ProofProgressStage | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
-  const [logEntries, setLogEntries] = useState<SubmitClaimLogEntry[]>([]);
+  const [logEntries, setLogEntries] = useState<ActivityLogEntry[]>([]);
   const [receipt, setReceipt] = useState<{
     nullifier: string;
     txHash: string;
@@ -85,12 +86,12 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
   const [passportBusy, setPassportBusy] = useState(false);
   const [passportAdded, setPassportAdded] = useState(false);
 
-  const appendLog = useCallback((entry: SubmitClaimLogEntry) => {
+  const appendLog = useCallback((entry: ActivityLogEntry) => {
     setLogEntries((prev) => [...prev, entry]);
   }, []);
 
   const log = useMemo(
-    () => createSubmitClaimLogger(appendLog),
+    () => createActivityLogger(appendLog, { prefix: "[ZKlaim Submit]" }),
     [appendLog],
   );
 
@@ -147,6 +148,10 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         has_doctor_signature: payload.doctor_signature.length > 0,
         token_policy_floor_cents: payload.policy_floor_cents,
         token_policy_ceiling_cents: payload.policy_ceiling_cents,
+        content_address: (claim.token as EncryptedClaimToken).cid,
+        insurer_view_attached: Boolean(
+          (claim.token as EncryptedClaimToken).insurer_view,
+        ),
       });
 
       const policyBounds = resolveDemoPolicyBounds(payload);
@@ -194,6 +199,15 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
           setStage(s);
           log.info(PROOF_STAGE_LABELS[s] ?? `Proof stage: ${s}`);
         },
+        onCircuitComplete: (circuit, result) => {
+          log.success(`Circuit proved: ${circuit}`, {
+            proof_bytes: result.proof.length,
+            public_input_count: result.publicInputs.length,
+            public_inputs_preview: result.publicInputs
+              .slice(0, 4)
+              .map((f) => f.toString(16).slice(0, 16)),
+          });
+        },
       });
       const nullifierHex = fieldToHex(proofPkg.nullifier);
       log.success("All proofs generated", {
@@ -201,6 +215,9 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         claim_hash: fieldToHex(proofPkg.claim_hash),
         payout_amount: proofPkg.payout_amount,
         fraud_proof_present: Boolean(proofPkg.fraud),
+        fraud_path_depth: proofPkg.fraud.fraud_non_membership_proof.length,
+        billing_pattern_hash: fieldToHex(proofPkg.fraud.billing_pattern_hash),
+        insurer: proofPkg.insurer,
       });
 
       log.info(
@@ -260,8 +277,7 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         log.error("Ledger rejected transaction", { status: result.status });
         throw new Error("Transaction failed on ledger");
       }
-      log.success("Transaction confirmed on ledger", {
-        hash: result.hash,
+      log.tx("Transaction confirmed on ledger", result.hash, {
         status: result.status,
       });
 

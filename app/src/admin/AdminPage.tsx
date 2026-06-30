@@ -3,6 +3,7 @@ import { FraudPatterns } from "./FraudPatterns";
 import { PolicyRegistration } from "./PolicyRegistration";
 import { EscrowBalance } from "./EscrowBalance";
 import { VerifierRegistry } from "./VerifierRegistry";
+import { InsurerAudit } from "./InsurerAudit";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PageColumn, PageContent, PageGrid } from "../components/ui/PageGrid";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -12,7 +13,7 @@ export function AdminPage() {
     <PageContent>
       <PageHeader
         title="Admin Panel"
-        subtitle="Insurer ASP enrollment, fraud patterns, policy registration, and escrow management."
+        subtitle="Insurer ASP enrollment, fraud patterns, policy registration, escrow, and selective-disclosure audit."
       />
 
       <PageGrid>
@@ -34,6 +35,9 @@ export function AdminPage() {
           </SectionCard>
           <SectionCard label="Passport" title="Verifier registry">
             <VerifierRegistry />
+          </SectionCard>
+          <SectionCard label="Audit" title="Insurer view (selective disclosure)">
+            <InsurerAudit />
           </SectionCard>
         </PageColumn>
       </PageGrid>

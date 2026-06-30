@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# End-to-end testnet submit_claim using demo proofs + patient wallet.
+# End-to-end testnet submit_claim using demo proofs + patient wallet from .env keys.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -7,27 +7,31 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "$ROOT/scripts/wsl_env.sh"
 
 NETWORK="${1:-testnet}"
-IDENTITY="${2:-zklaim-deploy}"
-PATIENT_IDENTITY="${3:-zklaim-patient}"
 
 cd "$ROOT"
 # shellcheck disable=SC1091
 source "$ROOT/.env"
 
-if ! stellar keys public-key "$PATIENT_IDENTITY" &>/dev/null; then
-  echo "=== Generating patient identity: $PATIENT_IDENTITY ==="
-  stellar keys generate "$PATIENT_IDENTITY"
+if [[ -z "${PATIENT_SECRET_KEY:-}" && -z "${PATIENT_PUBLIC_KEY:-}" ]]; then
+  echo "ERROR: Set PATIENT_SECRET_KEY (or PATIENT_PUBLIC_KEY for --simulate-only) in .env"
+  echo "  Do not use stellar CLI identities for runtime submit — use explicit env keys."
+  exit 1
 fi
 
-PATIENT_PUB="$(stellar keys address "$PATIENT_IDENTITY")"
-echo "=== Funding patient via Friendbot: $PATIENT_PUB ==="
-curl -s "https://friendbot.stellar.org?addr=${PATIENT_PUB}" >/dev/null || true
-sleep 3
+if [[ -n "${PATIENT_SECRET_KEY:-}" ]]; then
+  PATIENT_PUB="$(node -e "const {Keypair}=require('@stellar/stellar-sdk'); console.log(Keypair.fromSecret(process.env.PATIENT_SECRET_KEY).publicKey())")"
+  echo "=== Funding patient via Friendbot: $PATIENT_PUB ==="
+  curl -s "https://friendbot.stellar.org?addr=${PATIENT_PUB}" >/dev/null || true
+  sleep 3
+else
+  PATIENT_PUB="${PATIENT_PUBLIC_KEY}"
+  echo "=== Using PATIENT_PUBLIC_KEY (simulate-only or pre-funded): $PATIENT_PUB ==="
+fi
+
+export PATIENT_PUBLIC_KEY="$PATIENT_PUB"
+export INSURER_FUND_ADDRESS="${INSURER_FUND_ADDRESS:-${DEPLOYER_PUBLIC_KEY:-}}"
 
 echo "=== Proving demo claim + submit_claim ==="
-export PATIENT_IDENTITY="$PATIENT_IDENTITY"
-export INSURER_FUND_ADDRESS="${INSURER_FUND_ADDRESS:-$(stellar keys address "$IDENTITY")}"
-
 npx tsx scripts/submit_demo_claim.ts
 
 echo "=== Testnet submit_claim complete ==="
