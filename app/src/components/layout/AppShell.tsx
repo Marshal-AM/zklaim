@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { VerifierCheckPage } from "../../verifier/VerifierCheckPage";
 import { AdminPage } from "../../admin/AdminPage";
 import { PatientIdentityPage } from "../../patient/PatientIdentityPage";
 import { PatientInboxPage } from "../../patient/PatientInboxPage";
@@ -142,6 +143,7 @@ export function AppShell() {
             />
 
             <Route path="/admin" element={<AdminPage />} />
+            <Route path="/verifier" element={<VerifierCheckPage />} />
           </Routes>
         </div>
       </main>

@@ -1,4 +1,5 @@
 import { connectFreighter, getFreighterAddress } from "./freighter";
+import { env } from "../config/env";
 import { isWalletSessionSuppressed } from "./walletPersistence";
 import { useWalletStore } from "../store/wallet";
 
@@ -27,4 +28,21 @@ export async function ensureWalletConnected(): Promise<string> {
   setWallet(nextAddress);
   void refreshBalance();
   return nextAddress;
+}
+
+/**
+ * Admin panel / insurer ops must use the deployer wallet from .env
+ * (VITE_DEPLOYER_PUBLIC_KEY or VITE_INSURER_FUND_ADDRESS).
+ */
+export async function ensureAdminWalletConnected(): Promise<string> {
+  const required = env.adminAddress();
+  const connected = await ensureWalletConnected();
+  if (connected !== required) {
+    throw new Error(
+      `Admin actions require Freighter account ${required} (from .env). ` +
+        `Currently connected: ${connected}. Switch to the deployer account in Freighter, or run ` +
+        "`npx tsx scripts/register_passport_verifier.ts` with DEPLOYER_SECRET_KEY in .env.",
+    );
+  }
+  return required;
 }

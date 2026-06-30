@@ -1,14 +1,8 @@
-import {
-  Address,
-  BASE_FEE,
-  Operation,
-  rpc,
-  TransactionBuilder,
-  xdr,
-} from "@stellar/stellar-sdk";
+import { Address, BASE_FEE, Operation, rpc, TransactionBuilder, xdr } from "@stellar/stellar-sdk";
 import { env } from "../config/env";
-import { signPreparedSorobanInvoke } from "./sorobanWallet";
+import { hasAdminSigningKey, resolveAdminAddress } from "./adminWallet";
 import { hexToBytes, bytesToHex } from "./passport";
+import { scValToU64, sendContractInvoke } from "./sorobanInvoke";
 
 /** SDK types expect Buffer; browser runtime accepts Uint8Array. */
 function scvBytesU8(bytes: Uint8Array): xdr.ScVal {
@@ -18,6 +12,7 @@ function scvBytesU8(bytes: Uint8Array): xdr.ScVal {
 export interface InvokeResult {
   hash: string;
   status: string;
+  credentialId?: number;
 }
 
 function passportEnabled(): boolean {
@@ -38,63 +33,23 @@ export function passportRegistryId(): string {
   return id;
 }
 
-async function buildAndSendInvoke(params: {
-  source: string;
-  contractId: string;
-  fn: string;
-  args: xdr.ScVal[];
-}): Promise<InvokeResult> {
-  const server = new rpc.Server(env.rpcUrl);
-  const account = await server.getAccount(params.source);
-  const tx = new TransactionBuilder(account, {
-    fee: BASE_FEE,
-    networkPassphrase: env.networkPassphrase,
-  })
-    .addOperation(
-      Operation.invokeContractFunction({
-        contract: params.contractId,
-        function: params.fn,
-        args: params.args,
-      }),
-    )
-    .setTimeout(300)
-    .build();
-
-  const signed = await signPreparedSorobanInvoke(
-    tx,
-    env.rpcUrl,
-    params.source,
-  );
-  const sent = await server.sendTransaction(signed);
-  if (sent.status === "ERROR") {
-    throw new Error(`Transaction failed: ${sent.hash}`);
-  }
-
-  for (let i = 0; i < 30; i++) {
-    const result = await server.getTransaction(sent.hash);
-    if (result.status !== rpc.Api.GetTransactionStatus.NOT_FOUND) {
-      return { hash: sent.hash, status: result.status };
-    }
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  return { hash: sent.hash, status: "PENDING" };
-}
-
 export async function appendPassportLeaf(params: {
   patient: string;
   nullifierHex: string;
   leafCommitmentHex: string;
 }): Promise<InvokeResult> {
-  return buildAndSendInvoke({
+  const result = await sendContractInvoke({
     source: params.patient,
     contractId: passportRegistryId(),
     fn: "append_leaf",
+    signer: "freighter",
     args: [
       new Address(params.patient).toScVal(),
       scvBytesU8(hexToBytes(params.nullifierHex)),
       scvBytesU8(hexToBytes(params.leafCommitmentHex)),
     ],
   });
+  return { hash: result.hash, status: result.status };
 }
 
 export async function readPassportRoot(patient: string): Promise<string> {
@@ -153,16 +108,39 @@ export async function registerPassportVerifier(params: {
   verifier: string;
   permitted: boolean;
 }): Promise<InvokeResult> {
-  return buildAndSendInvoke({
+  const result = await sendContractInvoke({
     source: params.admin,
     contractId: passportRegistryId(),
     fn: "register_verifier",
+    signer: "admin",
     args: [
       new Address(params.admin).toScVal(),
       new Address(params.verifier).toScVal(),
       xdr.ScVal.scvBool(params.permitted),
     ],
   });
+  return { hash: result.hash, status: result.status };
+}
+
+/** Whitelist verifier via admin env key when not already registered. */
+export async function ensurePassportVerifierWhitelisted(
+  verifier: string,
+): Promise<{ newlyRegistered: boolean; txHash?: string }> {
+  if (await isPassportVerifierRegistered(verifier)) {
+    return { newlyRegistered: false };
+  }
+  if (!hasAdminSigningKey()) {
+    throw new Error(
+      `Verifier ${verifier} is not registered and VITE_DEPLOYER_SECRET_KEY is not set for auto-whitelist.`,
+    );
+  }
+  const admin = resolveAdminAddress();
+  const result = await registerPassportVerifier({
+    admin,
+    verifier,
+    permitted: true,
+  });
+  return { newlyRegistered: true, txHash: result.hash };
 }
 
 export async function verifyPassportCredential(params: {
@@ -172,11 +150,12 @@ export async function verifyPassportCredential(params: {
   publicInputHex: string[];
   proof: Uint8Array;
   ttlLedgers: number;
-}): Promise<InvokeResult & { credentialId?: number }> {
-  const result = await buildAndSendInvoke({
+}): Promise<InvokeResult> {
+  const result = await sendContractInvoke({
     source: params.patient,
     contractId: passportRegistryId(),
     fn: "verify_credential",
+    signer: "freighter",
     args: [
       new Address(params.patient).toScVal(),
       new Address(params.verifier).toScVal(),
@@ -188,7 +167,59 @@ export async function verifyPassportCredential(params: {
       xdr.ScVal.scvU32(params.ttlLedgers),
     ],
   });
-  return result;
+  return {
+    hash: result.hash,
+    status: result.status,
+    credentialId: scValToU64(result.returnValue),
+  };
+}
+
+export async function isPassportVerifierRegistered(
+  verifier: string,
+): Promise<boolean> {
+  const server = new rpc.Server(env.rpcUrl);
+  const contract = passportRegistryId();
+  const source = env.insurerFundAddress();
+  const tx = new TransactionBuilder(
+    await server.getAccount(source),
+    { fee: BASE_FEE, networkPassphrase: env.networkPassphrase },
+  )
+    .addOperation(
+      Operation.invokeContractFunction({
+        contract,
+        function: "is_verifier_registered",
+        args: [new Address(verifier).toScVal()],
+      }),
+    )
+    .setTimeout(30)
+    .build();
+
+  const sim = await server.simulateTransaction(tx);
+  if (rpc.Api.isSimulationError(sim)) {
+    throw new Error(sim.error);
+  }
+  return sim.result?.retval?.b() ?? false;
+}
+
+/** Map opaque Soroban traps to actionable passport credential errors. */
+export function explainPassportCredentialError(raw: string): string {
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes("unreachablecodereached") &&
+    lower.includes("verify_credential")
+  ) {
+    return (
+      "Verifier is not registered on the passport registry (or the proof failed verification). " +
+      "Set VITE_DEPLOYER_SECRET_KEY so verifiers are auto-whitelisted, then try again."
+    );
+  }
+  if (lower.includes("verifier not registered")) {
+    return "Verifier is not registered on-chain. Set VITE_DEPLOYER_SECRET_KEY for automatic whitelist.";
+  }
+  if (lower.includes("credential proof invalid")) {
+    return "ZK proof did not verify on-chain. Refresh the page, re-add passport leaves if needed, and try again.";
+  }
+  return raw;
 }
 
 export async function isPassportCredentialValid(

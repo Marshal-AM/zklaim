@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { ensureWalletConnected } from "../lib/walletSession";
+import { requireAdminSigning } from "../lib/adminWallet";
+import { explainAdminContractError } from "../lib/adminErrors";
 import { FormField } from "../components/ui/FormField";
 import { ActivityLogPanel } from "../components/ActivityLogPanel";
 import { insertFraudPattern } from "../lib/contracts";
@@ -26,8 +27,8 @@ export function FraudPatterns() {
     log.clear();
     log.info("insert_pattern started", { patternHash });
     try {
-      const admin = await ensureWalletConnected();
-      log.success("Admin wallet connected", { admin });
+      const admin = requireAdminSigning();
+      log.success("Admin signer ready", { admin });
       const result = await insertFraudPattern({
         admin,
         patternHash,
@@ -37,7 +38,11 @@ export function FraudPatterns() {
       toast.success("Fraud pattern inserted on-chain");
     } catch (err) {
       log.error("insert_pattern failed", err);
-      toast.error(err instanceof Error ? err.message : "Insert failed");
+      toast.error(
+        explainAdminContractError(
+          err instanceof Error ? err.message : "Insert failed",
+        ),
+      );
     } finally {
       setBusy(false);
     }

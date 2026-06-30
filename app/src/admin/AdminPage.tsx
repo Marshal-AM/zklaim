@@ -1,3 +1,4 @@
+import { hasAdminSigningKey, resolveAdminAddress } from "../lib/adminWallet";
 import { DoctorEnrollment } from "./DoctorEnrollment";
 import { FraudPatterns } from "./FraudPatterns";
 import { PolicyRegistration } from "./PolicyRegistration";
@@ -9,11 +10,18 @@ import { PageColumn, PageContent, PageGrid } from "../components/ui/PageGrid";
 import { SectionCard } from "../components/ui/SectionCard";
 
 export function AdminPage() {
+  const admin = resolveAdminAddress();
+  const signing = hasAdminSigningKey();
+
   return (
     <PageContent>
       <PageHeader
         title="Admin Panel"
-        subtitle="Insurer ASP enrollment, fraud patterns, policy registration, escrow, and selective-disclosure audit."
+        subtitle={
+          signing
+            ? `On-chain admin ${admin.slice(0, 8)}… — transactions signed via VITE_DEPLOYER_SECRET_KEY (demo).`
+            : `On-chain admin ${admin.slice(0, 8)}… — set VITE_DEPLOYER_SECRET_KEY to sign admin txs.`
+        }
       />
 
       <PageGrid>
@@ -33,7 +41,7 @@ export function AdminPage() {
           <SectionCard label="Policy" title="On-chain registration">
             <PolicyRegistration />
           </SectionCard>
-          <SectionCard label="Passport" title="Verifier registry">
+          <SectionCard label="Passport" title="Verifier whitelist">
             <VerifierRegistry />
           </SectionCard>
           <SectionCard label="Audit" title="Insurer view (selective disclosure)">

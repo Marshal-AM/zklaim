@@ -39,6 +39,41 @@ function ProviderIcon({ className }: { className?: string }) {
   );
 }
 
+function VerifierIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M9 12l2 2 4-4" />
+      <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+    </svg>
+  );
+}
+
+function AdminIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+
 function RoleCard({
   icon,
   title,
@@ -95,6 +130,18 @@ export function RoleChooser() {
             title="Enter as a Provider"
             description="Register as a licensed physician and send encrypted claim tokens to patients."
             onClick={() => navigate("/provider/create")}
+          />
+          <RoleCard
+            icon={<VerifierIcon className="h-6 w-6" />}
+            title="Enter as a Verifier"
+            description="Validate patient-issued passport credentials on-chain and review ZK proof statements."
+            onClick={() => navigate("/verifier")}
+          />
+          <RoleCard
+            icon={<AdminIcon className="h-6 w-6" />}
+            title="Enter as Admin"
+            description="Manage doctors, policies, fraud patterns, and passport verifier whitelist."
+            onClick={() => navigate("/admin")}
           />
         </div>
       </div>

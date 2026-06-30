@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { ensureWalletConnected } from "../lib/walletSession";
+import { requireAdminSigning } from "../lib/adminWallet";
+import { explainAdminContractError } from "../lib/adminErrors";
 import { FormField } from "../components/ui/FormField";
 import { DetailList, DetailRow } from "../components/ui/DetailList";
 import { StepFormNav } from "../components/ui/StepFormNav";
@@ -60,8 +61,8 @@ export function DoctorEnrollment() {
     log.clear();
     log.info("enroll_doctor started", { licenseHash, specialty, jurisdiction });
     try {
-      const admin = await ensureWalletConnected();
-      log.success("Admin wallet connected", { admin });
+      const admin = requireAdminSigning();
+      log.success("Admin signer ready", { admin });
       const result = await enrollDoctor({
         admin,
         licenseHash: licenseHash.replace(/^0x/, ""),
@@ -73,7 +74,11 @@ export function DoctorEnrollment() {
       toast.success("Doctor enrolled on-chain");
     } catch (err) {
       log.error("enroll_doctor failed", err);
-      toast.error(err instanceof Error ? err.message : "Enrollment failed");
+      toast.error(
+        explainAdminContractError(
+          err instanceof Error ? err.message : "Enrollment failed",
+        ),
+      );
     } finally {
       setBusy(false);
     }

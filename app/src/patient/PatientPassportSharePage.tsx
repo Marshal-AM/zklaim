@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { SectionCard } from "../components/ui/SectionCard";
 import { FormField } from "../components/ui/FormField";
 import { DetailList, DetailRow } from "../components/ui/DetailList";
@@ -11,13 +12,19 @@ import {
   EXCLUDABLE_CATEGORIES,
   ICD_CATEGORY_NAMES,
 } from "../lib/passportCategories";
-import { proveCategoryNonMembership } from "../lib/passportCredential";
 import {
+  proveCategoryNonMembership,
+  refreshPassportLeavesForProve,
+} from "../lib/passportCredential";
+import {
+  explainPassportCredentialError,
+  ensurePassportVerifierWhitelisted,
   isPassportConfigured,
   readPassportRoot,
   verifyPassportCredential,
 } from "../lib/passportContract";
 import { passportRootToBigint } from "../lib/passportAppend";
+import { saveCredentialSession } from "../lib/credentialStore";
 import { toast } from "../lib/toast";
 
 const TTL_LEDGERS = 50_000;
@@ -28,7 +35,9 @@ export function PatientPassportSharePage() {
   const [excluded, setExcluded] = useState<string[]>(["C"]);
   const [verifier, setVerifier] = useState("");
   const [busy, setBusy] = useState(false);
-  const [txHash, setTxHash] = useState<string | null>(null);
+  const [issuedProofs, setIssuedProofs] = useState<
+    Array<{ credentialId: number; excludedCategory: string; txHash: string }>
+  >([]);
 
   function toggleCategory(letter: string) {
     setExcluded((prev) =>
@@ -66,9 +75,15 @@ export function PatientPassportSharePage() {
     }
     if (!validateStep(0) || !validateStep(1)) return;
 
+    const verifierAddr = verifier.trim();
     setBusy(true);
     try {
       const patient = await ensureWalletConnected();
+      const whitelist = await ensurePassportVerifierWhitelisted(verifierAddr);
+      if (whitelist.newlyRegistered) {
+        toast.success("Verifier auto-whitelisted on-chain");
+      }
+
       const store = await loadPassportStore();
       if (!store || store.leaves.length === 0) {
         throw new Error("No claims in passport — settle and add a claim first");
@@ -76,48 +91,105 @@ export function PatientPassportSharePage() {
 
       const rootHex = await readPassportRoot(patient);
       const root = passportRootToBigint(rootHex);
+      const refreshedLeaves = await refreshPassportLeavesForProve(
+        patient,
+        store,
+      );
 
-      let lastHash: string | null = null;
+      const proofs: Array<{
+        credentialId: number;
+        excludedCategory: string;
+        publicInputHex: string[];
+        txHash: string;
+      }> = [];
+
       for (const category of excluded) {
         const { proof, publicInputs } = await proveCategoryNonMembership({
           store,
           passportRoot: root,
           excludedCategory: category,
+          leaves: refreshedLeaves,
         });
         const result = await verifyPassportCredential({
           patient,
-          verifier: verifier.trim(),
+          verifier: verifierAddr,
           circuitId: 4,
           publicInputHex: publicInputs,
           proof,
           ttlLedgers: TTL_LEDGERS,
         });
-        lastHash = result.hash;
+        if (result.credentialId === undefined) {
+          throw new Error(
+            "Credential submitted but id not returned — check transaction on explorer",
+          );
+        }
+        proofs.push({
+          credentialId: result.credentialId,
+          excludedCategory: category,
+          publicInputHex: publicInputs,
+          txHash: result.hash,
+        });
       }
-      setTxHash(lastHash);
+
+      saveCredentialSession({
+        patient,
+        verifier: verifierAddr,
+        passportRoot: rootHex,
+        claimCount: store.leaves.length,
+        circuitId: 4,
+        ttlLedgers: TTL_LEDGERS,
+        proofs,
+      });
+
+      setIssuedProofs(
+        proofs.map((p) => ({
+          credentialId: p.credentialId,
+          excludedCategory: p.excludedCategory,
+          txHash: p.txHash,
+        })),
+      );
       toast.success("Credential submitted on-chain");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Credential failed");
+      const raw = err instanceof Error ? err.message : "Credential failed";
+      toast.error(explainPassportCredentialError(raw));
     } finally {
       setBusy(false);
     }
   }
 
-  if (txHash) {
+  if (issuedProofs.length > 0) {
     return (
       <div className="space-y-6">
         <SectionCard label="Share" title="Credential generated">
           <p className="text-sm text-muted-foreground">
-            Your verifier can now check absence proofs on-chain.
+            Your verifier can validate these credentials on-chain. Share the credential
+            id(s) below.
           </p>
-          <a
-            href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
-            target="_blank"
-            rel="noreferrer"
-            className="btn-outline-primary mt-4 inline-flex text-xs"
-          >
-            View transaction
-          </a>
+          <DetailList className="mt-4">
+            {issuedProofs.map((p) => (
+              <DetailRow
+                key={p.credentialId}
+                term={`#${p.credentialId}`}
+                value={`Exclude ${ICD_CATEGORY_NAMES[p.excludedCategory]} (${p.excludedCategory})`}
+              />
+            ))}
+          </DetailList>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link
+              to={`/verifier?id=${issuedProofs[0].credentialId}`}
+              className="btn-primary inline-flex text-xs"
+            >
+              Open verifier check
+            </Link>
+            <a
+              href={`https://stellar.expert/explorer/testnet/tx/${issuedProofs[issuedProofs.length - 1].txHash}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-outline-primary inline-flex text-xs"
+            >
+              View last transaction
+            </a>
+          </div>
         </SectionCard>
       </div>
     );
@@ -128,7 +200,7 @@ export function PatientPassportSharePage() {
       <SectionCard label="Share" title="Generate a credential">
         <p className="text-sm text-muted-foreground">
           Prove absence of selected ICD categories over your passport history.
-          Verifier must be registered by admin on-chain.
+          The verifier address is auto-whitelisted on-chain when needed (via admin key in .env).
         </p>
 
         <StepFormLayout size="lg" className="mt-6 space-y-4">
@@ -137,7 +209,7 @@ export function PatientPassportSharePage() {
           {step === 0 ? (
             <FormField
               label="Verifier Stellar address"
-              hint="Hospital, insurer, or employer wallet registered as a verifier."
+              hint="Hospital, insurer, or employer wallet. Whitelisted automatically if not already registered."
             >
               <input
                 className="input-field-lg font-mono"

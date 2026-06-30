@@ -38,7 +38,8 @@
     "diagnose:soroban": "npx tsx scripts/diagnose_soroban_footprint.ts",
     "fund:usdc": "wsl bash ./scripts/fund_usdc.sh",
     "redeploy:escrow-usdc": "wsl bash ./scripts/redeploy_escrow_circle_usdc.sh",
-    "generate:insurer-view-keys": "node scripts/generate_insurer_view_keys.mjs"
+    "generate:insurer-view-keys": "node scripts/generate_insurer_view_keys.mjs",
+    "register:passport-verifier": "npx tsx scripts/register_passport_verifier.ts"
   },
   "engines": {
     "node": ">=20"

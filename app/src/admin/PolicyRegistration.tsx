@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fieldToHex, initPoseidon2, poseidon2HashFixed } from "@zklaim/scripts";
-import { ensureWalletConnected } from "../lib/walletSession";
+import { requireAdminSigning } from "../lib/adminWallet";
+import { explainAdminContractError } from "../lib/adminErrors";
 import { FormField } from "../components/ui/FormField";
 import { DetailList, DetailRow } from "../components/ui/DetailList";
 import { StepFormNav } from "../components/ui/StepFormNav";
@@ -79,8 +80,8 @@ export function PolicyRegistration() {
     log.clear();
     log.info("register_policy started", { coverageRoot, boundsHash });
     try {
-      const insurer = await ensureWalletConnected();
-      log.success("Insurer wallet connected", { insurer });
+      const insurer = requireAdminSigning();
+      log.success("Admin signer ready", { insurer });
       const result = await registerPolicy({
         insurer,
         coverageRoot,
@@ -92,7 +93,11 @@ export function PolicyRegistration() {
       toast.success("Policy registered on-chain");
     } catch (err) {
       log.error("register_policy failed", err);
-      toast.error(err instanceof Error ? err.message : "Registration failed");
+      toast.error(
+        explainAdminContractError(
+          err instanceof Error ? err.message : "Registration failed",
+        ),
+      );
     } finally {
       setBusy(false);
     }

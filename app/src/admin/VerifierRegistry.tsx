@@ -1,14 +1,9 @@
-import { useState } from "react";
-import { useWalletStore } from "../store/wallet";
-import { registerPassportVerifier } from "../lib/passportContract";
+import { hasAdminSigningKey, resolveAdminAddress } from "../lib/adminWallet";
 import { isPassportConfigured } from "../lib/passportContract";
-import { FormField } from "../components/ui/FormField";
-import { toast } from "../lib/toast";
 
 export function VerifierRegistry() {
-  const admin = useWalletStore((s) => s.address);
-  const [verifier, setVerifier] = useState("");
-  const [busy, setBusy] = useState(false);
+  const admin = resolveAdminAddress();
+  const autoWhitelist = hasAdminSigningKey();
 
   if (!isPassportConfigured()) {
     return (
@@ -19,44 +14,29 @@ export function VerifierRegistry() {
     );
   }
 
-  async function handleRegister() {
-    if (!admin || !verifier.trim()) {
-      toast.error("Connect admin wallet and enter verifier address.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const result = await registerPassportVerifier({
-        admin,
-        verifier: verifier.trim(),
-        permitted: true,
-      });
-      toast.success(`Verifier registered. Tx: ${result.hash.slice(0, 16)}…`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Registration failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
-    <div className="space-y-3">
-      <FormField label="Verifier Stellar address">
-        <input
-          className="input-field-lg font-mono"
-          value={verifier}
-          onChange={(e) => setVerifier(e.target.value)}
-          placeholder="G…"
-        />
-      </FormField>
-      <button
-        type="button"
-        onClick={() => void handleRegister()}
-        disabled={busy || !admin}
-        className="btn-primary"
-      >
-        {busy ? "Registering…" : "Register verifier on Stellar"}
-      </button>
+    <div className="space-y-3 text-sm text-muted-foreground">
+      <p>
+        Verifiers are <strong className="text-foreground">whitelisted automatically</strong> when
+        a patient generates a credential. No manual registration is required.
+      </p>
+      <p>
+        Admin signer: <span className="font-mono text-foreground">{admin}</span>
+      </p>
+      <p>
+        Auto-whitelist:{" "}
+        {autoWhitelist ? (
+          <span className="text-emerald-600">enabled (VITE_DEPLOYER_SECRET_KEY set)</span>
+        ) : (
+          <span className="text-destructive">
+            disabled — set VITE_DEPLOYER_SECRET_KEY in .env
+          </span>
+        )}
+      </p>
+      <p className="text-xs">
+        Patients enter the verifier address on Passport → Share. If it is not yet registered,
+        the app calls <code className="text-subtle">register_verifier</code> signed by the admin key.
+      </p>
     </div>
   );
 }

@@ -65,5 +65,9 @@ export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
     return [{ label: "Admin" }];
   }
 
+  if (pathname === "/verifier") {
+    return [{ label: "Verifier check" }];
+  }
+
   return [];
 }

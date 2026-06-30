@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { connectFreighter, getFreighterAddress } from "./freighter";
-import { ensureWalletConnected } from "./walletSession";
+import { ensureWalletConnected, ensureAdminWalletConnected } from "./walletSession";
 import {
   clearWalletSessionSuppressed,
   markWalletSessionDisconnected,
@@ -10,6 +10,12 @@ import { useWalletStore } from "../store/wallet";
 vi.mock("./freighter", () => ({
   connectFreighter: vi.fn(),
   getFreighterAddress: vi.fn(),
+}));
+
+vi.mock("../config/env", () => ({
+  env: {
+    adminAddress: () => "GADMIN_FROM_ENV",
+  },
 }));
 
 describe("ensureWalletConnected", () => {
@@ -63,6 +69,36 @@ describe("ensureWalletConnected", () => {
     await expect(ensureWalletConnected()).resolves.toBe("GNEW456");
     expect(getFreighterAddress).not.toHaveBeenCalled();
     expect(connectFreighter).toHaveBeenCalledOnce();
+  });
+});
+
+describe("ensureAdminWalletConnected", () => {
+  beforeEach(() => {
+    clearWalletSessionSuppressed();
+    useWalletStore.setState({
+      address: null,
+      connected: false,
+      usdcBalance: null,
+      hydrated: false,
+    });
+  });
+
+  it("returns env admin when Freighter matches", async () => {
+    useWalletStore.setState({
+      address: "GADMIN_FROM_ENV",
+      connected: true,
+      usdcBalance: "1.00",
+    });
+    await expect(ensureAdminWalletConnected()).resolves.toBe("GADMIN_FROM_ENV");
+  });
+
+  it("rejects when connected wallet is not env admin", async () => {
+    useWalletStore.setState({
+      address: "GPATIENT",
+      connected: true,
+      usdcBalance: "1.00",
+    });
+    await expect(ensureAdminWalletConnected()).rejects.toThrow(/GADMIN_FROM_ENV/);
   });
 });
 
