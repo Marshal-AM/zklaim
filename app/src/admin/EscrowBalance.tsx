@@ -15,25 +15,24 @@ export function EscrowBalance() {
   }, []);
 
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        Insurer escrow ({env.insurerFundAddress().slice(0, 8)}…)
-      </p>
-      {error ? (
-        <p className="text-sm text-destructive">{error}</p>
-      ) : null}
-      {balance !== null ? (
-        <p className="text-3xl font-[650] tabular-nums tracking-tight text-primary">
-          {formatUsdc(balance)}{" "}
-          <span className="text-sm font-medium text-muted-foreground">USDC</span>
+    <div className="flex flex-1 flex-col justify-between gap-4">
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Insurer escrow · {env.insurerFundAddress().slice(0, 8)}…
         </p>
-      ) : null}
-      <p className="text-xs text-subtle">
-        Top up via{" "}
-        <code className="font-mono text-muted-foreground">
-          bash scripts/fund_usdc.sh
-        </code>{" "}
-        on testnet.
+        {error ? (
+          <p className="text-sm text-destructive">{error}</p>
+        ) : balance !== null ? (
+          <p className="text-3xl font-[650] tabular-nums tracking-tight text-primary">
+            {formatUsdc(balance)}{" "}
+            <span className="text-sm font-medium text-muted-foreground">USDC</span>
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">Loading balance…</p>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Available for claim escrow payouts on testnet.
       </p>
     </div>
   );

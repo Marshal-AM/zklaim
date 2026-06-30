@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from "react";
-import { env } from "../config/env";
 import { FormField } from "../components/ui/FormField";
 import { DetailList, DetailRow } from "../components/ui/DetailList";
 import { ActivityLogPanel } from "../components/ActivityLogPanel";
@@ -27,7 +26,6 @@ export function InsurerAudit() {
     [appendLog],
   );
 
-  const publicKeyConfigured = env.hasInsurerViewKey();
   const secretFromEnv = Boolean(import.meta.env.VITE_INSURER_VIEW_SECRET_KEY);
 
   function handleDecrypt() {
@@ -46,15 +44,13 @@ export function InsurerAudit() {
 
       if (!token.insurer_view) {
         throw new Error(
-          "This token has no insurer_view envelope. Create a new claim after setting VITE_INSURER_VIEW_PUBLIC_KEY and restarting the dev server.",
+          "This token has no insurer view envelope. Use a claim created with insurer audit enabled.",
         );
       }
 
       const secret = secretInput.trim();
       if (!secret) {
-        throw new Error(
-          "Enter the insurer view secret key, or set VITE_INSURER_VIEW_SECRET_KEY in .env.",
-        );
+        throw new Error("Enter the insurer view secret key.");
       }
 
       log.info("Decrypting insurer view envelope (off-chain selective disclosure)…");
@@ -75,24 +71,10 @@ export function InsurerAudit() {
 
   return (
     <div className="space-y-4">
-      <div className="surface-row space-y-2 p-3 text-xs text-muted-foreground">
-        <p>
-          <span className="font-[650] text-foreground">Selective disclosure:</span>{" "}
-          decrypt the insurer copy of a claim. On-chain settlement still shows only
-          nullifier + USDC — not this data.
-        </p>
-        <p>
-          Public key configured:{" "}
-          <span className={publicKeyConfigured ? "text-success" : "text-primary"}>
-            {publicKeyConfigured ? "yes" : "no — set VITE_INSURER_VIEW_PUBLIC_KEY"}
-          </span>
-          {" · "}
-          Secret in env:{" "}
-          <span className={secretFromEnv ? "text-success" : "text-muted-foreground"}>
-            {secretFromEnv ? "yes (demo)" : "paste below"}
-          </span>
-        </p>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Decrypt the insurer copy of a claim for audit. On-chain settlement still
+        shows only nullifier and USDC — not this data.
+      </p>
 
       <FormField
         label="Encrypted claim token"
@@ -108,7 +90,11 @@ export function InsurerAudit() {
 
       <FormField
         label="Insurer view secret key (base64)"
-        hint="Demo: auto-filled from VITE_INSURER_VIEW_SECRET_KEY when set."
+        hint={
+          secretFromEnv
+            ? "Pre-filled for demo."
+            : "Paste the insurer view secret key."
+        }
       >
         <textarea
           value={secretInput}

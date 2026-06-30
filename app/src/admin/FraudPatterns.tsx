@@ -49,7 +49,7 @@ export function FraudPatterns() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-3">
       {txHash ? (
         <a
           href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}

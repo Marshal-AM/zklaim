@@ -140,7 +140,7 @@ export function RoleChooser() {
           <RoleCard
             icon={<AdminIcon className="h-6 w-6" />}
             title="Enter as Admin"
-            description="Manage doctors, policies, fraud patterns, and passport verifier whitelist."
+            description="Manage doctors, policies, fraud patterns, and insurer audit."
             onClick={() => navigate("/admin")}
           />
         </div>

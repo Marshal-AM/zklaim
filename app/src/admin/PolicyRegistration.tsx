@@ -122,8 +122,7 @@ export function PolicyRegistration() {
   return (
     <StepFormLayout className="space-y-4">
       <p className="text-center text-xs text-muted-foreground">
-        Demo policy band: {formatDemoPolicyRange()}. Re-register after changing
-        bounds so on-chain proofs match patient claims.
+        Demo policy band: {formatDemoPolicyRange()}.
       </p>
 
       <StepFormProgress steps={[...STEPS]} currentStep={step} />
@@ -131,7 +130,7 @@ export function PolicyRegistration() {
       {step === 0 ? (
         <FormField
           label="Coverage root"
-          hint="Merkle root of covered ICD-10 codes from policy_tree.json."
+          hint="Merkle root of covered ICD-10 codes."
         >
           <input
             required
