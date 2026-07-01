@@ -51,7 +51,6 @@ All on-chain logic lives in **seven Soroban smart contracts** (not EVM/Solidity)
    - [Proof Generation Pipeline](#proof-generation-pipeline)
    - [Public Input Chaining](#public-input-chaining)
    - [Merkle Tree Taxonomy](#merkle-tree-taxonomy)
-   - [Repository Structure](#repository-structure)
    - [Coordination Layer](#coordination-layer)
 5. [Circuit Explanation](#circuit-explanation)
    - [Cryptographic Primitives](#cryptographic-primitives)
@@ -491,40 +490,6 @@ billing_pattern_hash = Poseidon2([icd_category, amount_bucket, provider_pattern]
 ```
 
 Where `icd_category` is the first three characters of the ICD code (e.g., `J18` from `J18.9`), `amount_bucket` encodes the policy floor–ceiling range, and `provider_pattern` is a coarse provider class (e.g., `"LICENSED"`).
-
-### Repository Structure
-
-```
-zklaim/
-├── circuits/                 # Noir workspace — 5 production circuits + common + test_fixtures
-│   ├── policy_validity/
-│   ├── amount_range/
-│   ├── doctor_attestation/
-│   ├── deductible_accumulator/
-│   ├── category_nonmembership/
-│   ├── poseidon_reference/   # Cross-stack Poseidon2 alignment gate
-│   └── common/               # Shared Merkle + Pedersen helpers
-├── contracts/                # Soroban workspace (soroban-sdk 26.1.0)
-│   ├── common/               # ClaimPackage, circuit IDs, Poseidon2, Merkle
-│   ├── ultrahonk_verifier/
-│   ├── asp_membership/
-│   ├── asp_nonmembership/
-│   ├── policy_registry/
-│   ├── deductible_tracker/
-│   ├── claim_escrow/
-│   └── passport_registry/
-├── client/
-│   ├── proof_gen/            # Browser/Node proof orchestrator + bb.js workers
-│   ├── stellar_tx/           # Soroban transaction encoding
-│   └── wasm/                 # Compiled Noir ACIR JSON
-├── app/                      # React patient / provider / admin / verifier UI
-├── scripts/                  # Tree builders, artifacts, deploy tooling
-│   ├── lib/                  # poseidon2, merkle, sparse_merkle, nullifier, pedersen
-│   └── artifacts/            # policy_tree.json, asp_tree.json, fraud_tree.json
-├── supabase/migrations/      # Optional encrypted claim coordination (no PHI)
-├── tests/                    # Tree builder integration tests
-└── docs/                     # Full requirements + implementation specifications
-```
 
 ### Coordination Layer
 
