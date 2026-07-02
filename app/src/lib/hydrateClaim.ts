@@ -14,17 +14,14 @@ import {
   DEMO_BILLING_BUCKET_MIN,
   resolveDemoPolicyBounds,
 } from "../config/demoPolicy";
+import type { PriorClaimContext } from "./accumulatorAlignment";
 import type { PatientIdentity } from "../types/patient";
+import { assertTreeChainAligned } from "./treeChainAlignment";
+import { fetchJson } from "./fetchJson";
+
+export { fetchJson };
 
 let loadersInitialized = false;
-
-export async function fetchJson<T>(path: string): Promise<T> {
-  const res = await fetch(path);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch ${path}: ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
 
 export function initBrowserProofGen(): void {
   if (loadersInitialized) return;
@@ -48,9 +45,11 @@ export async function hydrateClaimFromToken(
   token: ClaimTokenPayload,
   identity: PatientIdentity,
   secrets: PendingClaimSecrets,
+  priorClaim?: PriorClaimContext | null,
 ) {
   initBrowserProofGen();
   await loadFraudTreeForBrowser();
+  await assertTreeChainAligned();
 
   const [policyTree, aspTree] = await Promise.all([
     fetchJson<PolicyTreeArtifact>("/trees/policy_tree.json"),
@@ -75,6 +74,10 @@ export async function hydrateClaimFromToken(
       prev_accumulator_secret: BigInt(identity.accumulator_met_cents),
       deductible_limit_cents: identity.deductible_limit_cents,
       blinding_factor: fieldFromHex(secrets.blinding_factor),
+      prior_claim_amount: priorClaim?.amount_cents ?? 0,
+      prior_claim_blinding: priorClaim
+        ? fieldFromHex(priorClaim.blinding_factor)
+        : 0n,
     },
     billing: {
       amount_bucket_min: DEMO_BILLING_BUCKET_MIN,

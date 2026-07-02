@@ -15,6 +15,10 @@ export interface AccumulatorState {
   deductible_limit_cents: number;
   /** Must match amount circuit blinding_factor */
   blinding_factor: bigint;
+  /** 0 for the first on-chain claim (genesis accumulator). */
+  prior_claim_amount: number;
+  /** 0 for genesis; blinding from the immediately prior submitted claim. */
+  prior_claim_blinding: bigint;
 }
 
 export interface BillingPattern {
@@ -112,6 +116,8 @@ export interface GenerateClaimProofsOptions {
 }
 
 export interface FraudTreeArtifact {
+  root: string;
+  leaves: Array<{ billing_pattern_hash: string }>;
   clean_pattern: {
     billing_pattern_hash: string;
     non_membership_proof: {

@@ -1,5 +1,7 @@
 fn main(
     prev_accumulator_secret: Field,
+    prior_claim_amount: u64,
+    prior_claim_blinding: Field,
     new_amount: u64,
     new_amount_blinding: Field,
     deductible_limit: u64,
@@ -20,8 +22,15 @@ fn main(
         "New accumulator commitment incorrect",
     );
 
-    let expected_prev =
-        std::hash::poseidon2::Poseidon2::hash([prev_accumulator_secret], 1);
+    let expected_prev = if prior_claim_amount == 0 {
+        std::hash::poseidon2::Poseidon2::hash([prev_accumulator_secret], 1)
+    } else {
+        let r0 = prev_accumulator_secret - prior_claim_amount as Field;
+        std::hash::poseidon2::Poseidon2::hash(
+            [r0, prior_claim_amount as Field, prior_claim_blinding],
+            3,
+        )
+    };
     assert(
         expected_prev == prev_accumulator_commit,
         "Previous accumulator commitment mismatch",
@@ -46,6 +55,8 @@ fn main(
 fn test_demo_b_crossing() {
     main(
         test_fixtures::PREV_ACCUM_SECRET_B,
+        0,
+        0,
         test_fixtures::NEW_AMOUNT_B,
         test_fixtures::NEW_AMOUNT_BLINDING_B,
         test_fixtures::DEDUCTIBLE_LIMIT,
@@ -61,6 +72,8 @@ fn test_demo_b_crossing() {
 fn test_below_threshold() {
     main(
         test_fixtures::PREV_ACCUM_SECRET_BELOW,
+        0,
+        0,
         test_fixtures::NEW_AMOUNT_BELOW,
         test_fixtures::NEW_AMOUNT_BLINDING_BELOW,
         test_fixtures::DEDUCTIBLE_LIMIT,
@@ -76,6 +89,8 @@ fn test_below_threshold() {
 fn test_broken_amount_chain_fails() {
     main(
         test_fixtures::PREV_ACCUM_SECRET_B,
+        0,
+        0,
         test_fixtures::NEW_AMOUNT_B,
         test_fixtures::NEW_AMOUNT_BLINDING_B,
         test_fixtures::DEDUCTIBLE_LIMIT,
@@ -91,6 +106,8 @@ fn test_broken_amount_chain_fails() {
 fn test_wrong_deductible_flag_fails() {
     main(
         test_fixtures::PREV_ACCUM_SECRET_B,
+        0,
+        0,
         test_fixtures::NEW_AMOUNT_B,
         test_fixtures::NEW_AMOUNT_BLINDING_B,
         test_fixtures::DEDUCTIBLE_LIMIT,

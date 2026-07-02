@@ -34,23 +34,51 @@ export async function computeBillingPatternHash(
   );
 }
 
-function fraudProofFromArtifact(
-  billing_pattern_hash: bigint,
+export async function rebuildFraudSmtFromArtifact(
   tree: FraudTreeArtifact,
-): FraudProofData {
-  const clean = tree.clean_pattern;
-  const artifactHash = fieldFromHex(clean.billing_pattern_hash);
-  if (artifactHash !== billing_pattern_hash) {
+): Promise<SparseMerkleTree> {
+  const smt = new SparseMerkleTree();
+  await smt.init();
+  for (const leaf of tree.leaves) {
+    await smt.insert(fieldFromHex(leaf.billing_pattern_hash));
+  }
+  const artifactRoot = fieldFromHex(tree.root);
+  if (smt.getRoot() !== artifactRoot) {
     throw new Error(
-      "billing_pattern_hash does not match fraud_tree clean_pattern — rebuild trees",
+      "fraud_tree.json is internally inconsistent — run npm run build:trees",
     );
   }
+  return smt;
+}
+
+async function fraudProofFromArtifact(
+  billing_pattern_hash: bigint,
+  tree: FraudTreeArtifact,
+  icdCode: string,
+): Promise<FraudProofData> {
+  const clean = tree.clean_pattern;
+  const artifactHash = fieldFromHex(clean.billing_pattern_hash);
+  if (artifactHash === billing_pattern_hash) {
+    return {
+      billing_pattern_hash,
+      fraud_non_membership_proof: clean.non_membership_proof.path.map((p) =>
+        fieldToBytesBE(fieldFromHex(p)),
+      ),
+      fraud_path_indices: clean.non_membership_proof.path_indices,
+    };
+  }
+
+  const smt = await rebuildFraudSmtFromArtifact(tree);
+  if (smt.has(billing_pattern_hash)) {
+    throw new Error(
+      `Billing pattern for ICD ${icdCode} matches the on-chain fraud blacklist`,
+    );
+  }
+  const proof = await smt.getNonMembershipProof(billing_pattern_hash);
   return {
     billing_pattern_hash,
-    fraud_non_membership_proof: clean.non_membership_proof.path.map((p) =>
-      fieldToBytesBE(fieldFromHex(p)),
-    ),
-    fraud_path_indices: clean.non_membership_proof.path_indices,
+    fraud_non_membership_proof: proof.path.map((p) => fieldToBytesBE(p)),
+    fraud_path_indices: proof.pathIndices,
   };
 }
 
@@ -78,7 +106,7 @@ export async function resolveFraudProof(
 
   const tree = await resolveFraudTree(fraudTreeJson);
   if (tree) {
-    return fraudProofFromArtifact(billing_pattern_hash, tree);
+    return fraudProofFromArtifact(billing_pattern_hash, tree, claim.icd_code);
   }
 
   const smt = new SparseMerkleTree();

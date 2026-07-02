@@ -20,7 +20,14 @@ export async function deriveAccumulatorCommits(
   await initPoseidon2();
   const prev = accum.prev_accumulator_secret;
   const newAmount = BigInt(newAmountCents);
-  const prev_accumulator_commit = await poseidon2HashFixed([prev]);
+  const prev_accumulator_commit =
+    accum.prior_claim_amount === 0
+      ? await poseidon2HashFixed([prev])
+      : await poseidon2HashFixed([
+          prev - BigInt(accum.prior_claim_amount),
+          BigInt(accum.prior_claim_amount),
+          accum.prior_claim_blinding,
+        ]);
   const new_accumulator_commit = await poseidon2HashFixed([
     prev,
     newAmount,

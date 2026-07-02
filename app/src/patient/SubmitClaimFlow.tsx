@@ -44,6 +44,15 @@ import {
 } from "../config/demoPolicy";
 import { env } from "../config/env";
 import {
+  assertAccumulatorReadyForClaim,
+  findPriorSubmittedInboxClaim,
+} from "../lib/accumulatorAlignment";
+import { explainSubmitClaimError } from "../lib/submitClaimErrors";
+import {
+  assertTreeChainAligned,
+  invalidateTreeAlignmentCache,
+} from "../lib/treeChainAlignment";
+import {
   createActivityLogger,
   type ActivityLogEntry,
 } from "../lib/activityLog";
@@ -168,6 +177,13 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
       }
       log.success("Wallet connected", { address });
 
+      log.info("Verifying Merkle tree / on-chain alignment…");
+      const alignment = await assertTreeChainAligned({ force: true });
+      log.success("Tree alignment verified", {
+        manifestGeneratedAt: alignment.manifestGeneratedAt,
+        aspLeafCount: alignment.onChainRoots.aspLeafCount,
+      });
+
       log.info("Fetching USDC balance (before)…");
       const balanceBefore = await fetchUsdcBalance(address);
       log.success("Balance snapshot (before)", {
@@ -217,6 +233,31 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         );
       }
 
+      log.info("Checking deductible accumulator vs on-chain…");
+      let priorClaim: { amount_cents: number; blinding_factor: string } | null =
+        null;
+      const priorInbox = findPriorSubmittedInboxClaim(history, inbox);
+      if (priorInbox) {
+        const priorPayload = await decryptClaimToken(
+          priorInbox.token,
+          identity.box_secret_key,
+        );
+        priorClaim = {
+          amount_cents: priorPayload.amount_cents,
+          blinding_factor: priorInbox.blinding_factor,
+        };
+        log.info("Found prior submitted claim for accumulator chaining", {
+          priorClaimId: priorInbox.id,
+          prior_amount_cents: priorClaim.amount_cents,
+        });
+      }
+      const accumCheck = await assertAccumulatorReadyForClaim({
+        patientAddress: address,
+        runningTotalBefore: BigInt(identity.accumulator_met_cents),
+        priorClaim,
+      });
+      log.success("Accumulator continuity OK", accumCheck);
+
       log.info("Hydrating claim data (trees + WASM circuits)…");
       const claimData = await hydrateClaimFromToken(
         payload,
@@ -225,6 +266,7 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
           random_nonce: claim.random_nonce,
           blinding_factor: claim.blinding_factor,
         },
+        priorClaim,
       );
       log.success("Claim data hydrated", {
         policy_floor_cents: claimData.policy_floor_cents,
@@ -394,49 +436,12 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Submit failed";
       log.error("Submit claim failed", err);
-      if (
-        msg.includes("asp root mismatch") ||
-        (msg.includes("UnreachableCodeReached") &&
-          msg.includes("submit_claim") &&
-          msg.includes("get_root"))
-      ) {
-        toast.error(
-          "Doctor registry (ASP) on-chain does not match your proofs. Run npm run redeploy:asp-escrow, restart the dev server, then retry.",
-        );
-      } else if (
-        msg.includes("fraud non-membership") ||
-        (msg.includes("verify_non_membership") && msg.includes("false"))
-      ) {
-        toast.error(
-          "Fraud blacklist on-chain does not match your proofs. Run npm run redeploy:asp-escrow, restart the dev server, then retry.",
-        );
-      } else if (
-        msg.includes("txSorobanInvalid") ||
-        msg.includes("Soroban metadata expired")
-      ) {
-        toast.error(
-          "Soroban transaction rejected at submit. Retry immediately. If this persists, run npm run redeploy:asp-escrow to deploy contract footprint fixes, then restart the dev server.",
-        );
-      } else if (msg.includes("Freighter changed the transaction body")) {
-        toast.error(
-          "Freighter network mismatch. Switch Freighter to Testnet (Settings → Network), refresh, and retry.",
-        );
-      } else if (msg.includes("missing Soroban metadata")) {
-        toast.error(
-          "Freighter returned a transaction without Soroban data. Update Freighter to the latest version and retry.",
-        );
-      } else if (
-        msg.includes("Error(Auth") &&
-        (msg.includes("transfer") || msg.includes("authorization not tied"))
-      ) {
-        toast.error(
-          "Insurer USDC escrow is not funded or claim escrow is outdated. Run npm run redeploy:asp-escrow, then retry.",
-        );
-      } else if (msg.includes("Simulation failed") || msg.includes("Provider")) {
-        toast.error("Provider not verified or claim rejected on-chain.");
-      } else {
-        toast.error(msg);
+      const { toast: toastMsg, invalidateAlignment } =
+        explainSubmitClaimError(msg);
+      if (invalidateAlignment) {
+        invalidateTreeAlignmentCache();
       }
+      toast.error(toastMsg);
       updateInboxClaim(claim.id, { status: "failed" });
       log.warn("Inbox claim marked failed", { claimId: claim.id });
       setRunFinished(true);

@@ -8,6 +8,7 @@ import { StepFormProgress } from "../components/ui/StepFormProgress";
 import { StepFormLayout } from "../components/ui/StepFormLayout";
 import { ActivityLogPanel } from "../components/ActivityLogPanel";
 import { enrollDoctor } from "../lib/contracts";
+import { invalidateTreeAlignmentCache } from "../lib/treeChainAlignment";
 import { createActivityLogger, type ActivityLogEntry } from "../lib/activityLog";
 import { toast } from "../lib/toast";
 
@@ -71,7 +72,10 @@ export function DoctorEnrollment() {
         log,
       });
       setTxHash(result.hash);
-      toast.success("Doctor enrolled on-chain");
+      invalidateTreeAlignmentCache();
+      toast.success(
+        "Doctor enrolled on-chain — run npm run redeploy:asp-escrow and restart dev to resync proofs",
+      );
     } catch (err) {
       log.error("enroll_doctor failed", err);
       toast.error(
@@ -102,6 +106,13 @@ export function DoctorEnrollment() {
 
   return (
     <StepFormLayout className="space-y-4">
+      <div className="info-card border-primary/30 p-3 text-xs text-muted-foreground">
+        Manual <code className="font-mono text-foreground">enroll_doctor</code>{" "}
+        appends a new ASP leaf and changes the on-chain Merkle root. Patient proofs
+        use static tree artifacts — after enrolling here you must run{" "}
+        <code className="font-mono text-foreground">npm run redeploy:asp-escrow</code>{" "}
+        and restart the dev server.
+      </div>
       <StepFormProgress steps={[...STEPS]} currentStep={step} />
 
       {step === 0 ? (

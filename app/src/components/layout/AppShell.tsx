@@ -25,7 +25,7 @@ export function AppShell() {
   const isLanding = pathname === "/";
 
   return (
-    <div className="flex min-h-screen min-w-0 flex-col overflow-x-clip bg-background select-none">
+    <div className="flex min-h-screen min-w-0 flex-col overflow-x-clip bg-background">
       <WalletHydrator />
       <PatientWalletHydrator />
       <ProviderWalletHydrator />

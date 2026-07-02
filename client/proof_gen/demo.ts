@@ -40,6 +40,8 @@ export async function loadDemoClaimData(): Promise<ClaimData> {
       prev_accumulator_secret: BigInt(demo.demo_b.prev_accumulator_secret),
       deductible_limit_cents: demo.demo_b.deductible_limit_cents,
       blinding_factor: fieldFromHex(demo.demo_a.blinding_factor),
+      prior_claim_amount: 0,
+      prior_claim_blinding: 0n,
     },
     billing: {
       amount_bucket_min: 100,
@@ -47,7 +49,9 @@ export async function loadDemoClaimData(): Promise<ClaimData> {
       provider_pattern: "LICENSED",
     },
     insurer:
-      process.env.INSURER_FUND_ADDRESS ?? process.env.DEPLOYER_PUBLIC_KEY ?? "",
+      process.env.INSURER_FUND_ADDRESS ??
+      process.env.DEPLOYER_PUBLIC_KEY ??
+      "",
     doctor_license_id: "MD-001",
     policyTree,
     aspTree,

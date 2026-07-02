@@ -199,6 +199,8 @@ export async function generateClaimProofs(
 
   const accumInputs = {
     prev_accumulator_secret: claim.accumulator.prev_accumulator_secret,
+    prior_claim_amount: claim.accumulator.prior_claim_amount,
+    prior_claim_blinding: claim.accumulator.prior_claim_blinding,
     new_amount: claim.amount_cents,
     new_amount_blinding: claim.accumulator.blinding_factor,
     deductible_limit: claim.accumulator.deductible_limit_cents,

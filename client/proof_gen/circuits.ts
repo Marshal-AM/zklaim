@@ -143,6 +143,8 @@ export async function proveDoctorCircuit(args: {
 
 export async function proveAccumCircuit(args: {
   prev_accumulator_secret: bigint;
+  prior_claim_amount: number;
+  prior_claim_blinding: bigint;
   new_amount: number;
   new_amount_blinding: bigint;
   deductible_limit: number;
@@ -154,6 +156,8 @@ export async function proveAccumCircuit(args: {
 }): Promise<CircuitProofResult> {
   return proveCircuit("deductible_accumulator", {
     prev_accumulator_secret: fieldToNoirInput(args.prev_accumulator_secret),
+    prior_claim_amount: String(args.prior_claim_amount),
+    prior_claim_blinding: fieldToNoirInput(args.prior_claim_blinding),
     new_amount: String(args.new_amount),
     new_amount_blinding: fieldToNoirInput(args.new_amount_blinding),
     deductible_limit: String(args.deductible_limit),

@@ -37,7 +37,7 @@ ensureDir(join(PUBLIC, "trees"));
 ensureDir(join(PUBLIC, "seed"));
 ensureDir(join(PUBLIC, "wasm"));
 
-for (const name of ["policy_tree", "asp_tree", "fraud_tree"]) {
+for (const name of ["policy_tree", "asp_tree", "fraud_tree", "manifest"]) {
   copyRequired(
     join(ROOT, "scripts", "artifacts", `${name}.json`),
     join(PUBLIC, "trees", `${name}.json`),

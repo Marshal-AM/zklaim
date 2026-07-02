@@ -7,6 +7,7 @@ import {
   shortClaimId,
   summarizeInboxClaim,
 } from "../lib/claimInbox";
+import { TreeAlignmentBanner } from "../components/TreeAlignmentBanner";
 import { SectionCard } from "../components/ui/SectionCard";
 
 export function PatientSubmitPage() {
@@ -62,6 +63,7 @@ export function PatientSubmitPage() {
 
   return (
     <div className="space-y-6">
+      <TreeAlignmentBanner />
       {submittable.length > 1 ? (
         <SectionCard label="Pending claims" title="Select a claim to submit">
           <ul className="space-y-2">
