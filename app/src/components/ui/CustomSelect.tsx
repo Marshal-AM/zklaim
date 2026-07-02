@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 export interface SelectOption {
   value: string;
@@ -14,6 +14,8 @@ interface CustomSelectProps {
   placeholder?: string;
   id?: string;
   className?: string;
+  /** Max visible rows before scrolling (default 8). */
+  maxVisibleRows?: number;
 }
 
 function ChevronDown({ className }: { className?: string }) {
@@ -38,12 +40,31 @@ export function CustomSelect({
   placeholder = "Select…",
   id: idProp,
   className = "",
+  maxVisibleRows = 8,
 }: CustomSelectProps) {
   const autoId = useId();
   const id = idProp ?? autoId;
+  const listboxId = `${id}-listbox`;
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const rootRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const selectedOptionRef = useRef<HTMLButtonElement>(null);
   const selected = options.find((o) => o.value === value) ?? null;
+
+  const enabledOptions = useMemo(
+    () => options.filter((o) => !o.disabled),
+    [options],
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const selectedIdx = enabledOptions.findIndex((o) => o.value === value);
+    setActiveIndex(selectedIdx >= 0 ? selectedIdx : 0);
+    requestAnimationFrame(() => {
+      selectedOptionRef.current?.scrollIntoView({ block: "nearest" });
+    });
+  }, [open, value, enabledOptions]);
 
   useEffect(() => {
     if (!open) return;
@@ -59,11 +80,55 @@ export function CustomSelect({
   useEffect(() => {
     if (!open) return;
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (!open || enabledOptions.length === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIndex((i) => (i + 1) % enabledOptions.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex(
+          (i) => (i - 1 + enabledOptions.length) % enabledOptions.length,
+        );
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        setActiveIndex(0);
+      } else if (e.key === "End") {
+        e.preventDefault();
+        setActiveIndex(enabledOptions.length - 1);
+      } else if (e.key === "Enter" && activeIndex >= 0) {
+        e.preventDefault();
+        const opt = enabledOptions[activeIndex];
+        if (opt) {
+          onChange(opt.value);
+          setOpen(false);
+        }
+      }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open]);
+  }, [open, activeIndex, enabledOptions, onChange]);
+
+  useEffect(() => {
+    if (!open || activeIndex < 0) return;
+    const buttons = listRef.current?.querySelectorAll<HTMLButtonElement>(
+      '[role="option"]:not(:disabled)',
+    );
+    buttons?.[activeIndex]?.scrollIntoView({ block: "nearest" });
+  }, [open, activeIndex]);
+
+  function selectOption(optValue: string) {
+    onChange(optValue);
+    setOpen(false);
+  }
+
+  // ~2.75rem row height × visible rows, capped at half the viewport
+  const listMaxHeight = `min(${maxVisibleRows * 2.75}rem, 50vh)`;
 
   return (
     <div ref={rootRef} className={`relative w-full ${className}`}>
@@ -72,12 +137,17 @@ export function CustomSelect({
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={open ? listboxId : undefined}
         onClick={() => setOpen((v) => !v)}
-        className="input-field flex w-full cursor-pointer items-center justify-between gap-2 text-left"
+        className="input-field flex min-h-11 w-full cursor-pointer touch-manipulation items-center justify-between gap-2 text-left"
       >
         <span className="min-w-0 truncate font-[650]">
-          {selected ? selected.label : (
-            <span className="font-normal text-muted-foreground">{placeholder}</span>
+          {selected ? (
+            selected.label
+          ) : (
+            <span className="font-normal text-muted-foreground">
+              {placeholder}
+            </span>
           )}
         </span>
         <ChevronDown
@@ -87,25 +157,31 @@ export function CustomSelect({
 
       {open ? (
         <div
+          id={listboxId}
+          ref={listRef}
           role="listbox"
-          className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-xl border border-border bg-card shadow-[0_16px_48px_rgba(0,0,0,0.35)]"
+          aria-label={placeholder}
+          className="absolute left-0 right-0 z-50 mt-2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card shadow-[0_16px_48px_rgba(0,0,0,0.35)] [scrollbar-gutter:stable]"
+          style={{ maxHeight: listMaxHeight }}
         >
           {options.map(({ value: optValue, label, description, disabled }) => {
+            const enabledIdx = enabledOptions.findIndex(
+              (o) => o.value === optValue,
+            );
             const isSelected = value === optValue;
+            const isActive = !disabled && enabledIdx === activeIndex;
             return (
               <button
                 key={optValue}
+                ref={isSelected ? selectedOptionRef : undefined}
                 type="button"
                 role="option"
                 aria-selected={isSelected}
                 disabled={disabled}
-                onClick={() => {
-                  onChange(optValue);
-                  setOpen(false);
-                }}
-                className={`flex w-full flex-col gap-0.5 px-3.5 py-3 text-left text-sm transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-40 ${
+                onClick={() => selectOption(optValue)}
+                className={`flex min-h-11 w-full touch-manipulation flex-col justify-center gap-0.5 px-4 py-2.5 text-left text-sm transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-40 ${
                   isSelected ? "bg-primary/10" : ""
-                }`}
+                } ${isActive && !isSelected ? "bg-muted/30" : ""}`}
               >
                 <span className="flex items-center justify-between gap-2 font-[650]">
                   {label}
@@ -127,7 +203,9 @@ export function CustomSelect({
                   ) : null}
                 </span>
                 {description ? (
-                  <span className="text-xs text-muted-foreground">{description}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {description}
+                  </span>
                 ) : null}
               </button>
             );
