@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/((?!assets|wasm|trees|seed).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
