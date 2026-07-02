@@ -2,7 +2,7 @@
 
 > Prove your insurance claim is valid. Receive payment. Reveal nothing about your diagnosis.
 
-Private medical claim settlement on Stellar via Noir UltraHonk proofs, Authorized Service Provider (ASP) compliance trees, recursive deductible accumulation, and Circle USDC escrow — a compositional zero-knowledge system built for the **ZK on Stellar Hackathon** (June 2026).
+Private medical claim settlement on Stellar via Noir UltraHonk proofs, Authorized Service Provider (ASP) compliance trees, recursive deductible accumulation, and Circle USDC escrow — a compositional zero-knowledge system built on **Stellar**.
 
 **Stack:** Soroban smart contracts (Rust/WASM) · Noir 1.0.0-beta.3 · Barretenberg UltraHonk 0.87.0 · BN254 host functions (CAP-0074/0075/0080) · Stellar testnet
 
