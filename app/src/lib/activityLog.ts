@@ -121,7 +121,14 @@ export function createActivityLogger(
       const data =
         err instanceof Error
           ? { message: err.message, name: err.name, stack: err.stack }
-          : err;
+          : err instanceof ErrorEvent
+            ? {
+                message: err.message || "Script error",
+                filename: err.filename,
+                lineno: err.lineno,
+                colno: err.colno,
+              }
+            : err;
       emit("error", step, data);
     },
     tx(step, hash, data) {

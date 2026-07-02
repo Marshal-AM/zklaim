@@ -79,6 +79,19 @@ export function explainSubmitClaimError(message: string): SubmitClaimErrorInfo {
     };
   }
 
+  if (
+    msg.includes("Web Worker failed") ||
+    msg.includes("SharedArrayBuffer") ||
+    msg.includes("crossOriginIsolated") ||
+    msg.includes("barretenberg")
+  ) {
+    return {
+      toast:
+        "ZK proof generation failed in the browser (usually missing cross-origin isolation headers on the deployed site). Redeploy with COOP/COEP headers or retry after a hard refresh.",
+      invalidateAlignment: false,
+    };
+  }
+
   if (msg.includes("policy expired")) {
     return {
       toast: "Insurer policy is inactive on-chain. Re-register the demo policy in Admin.",

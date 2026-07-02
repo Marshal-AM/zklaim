@@ -3,6 +3,7 @@ import {
   generateClaimProofs,
   createUnsignedClaimPreparer,
   submitClaim,
+  canUseZkProofWorkers,
   type ProofProgressStage,
 } from "@zklaim/proof-gen";
 import { fieldToHex } from "@zklaim/scripts";
@@ -276,9 +277,17 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         insurer: claimData.insurer,
       });
 
-      log.info("Generating ZK proofs in Web Workers (~7–10s)…");
+      const useProofWorkers = canUseZkProofWorkers();
+      log.info(
+        useProofWorkers
+          ? "Generating ZK proofs in Web Workers (~7–10s)…"
+          : "Generating ZK proofs on main thread (~15–25s, no SharedArrayBuffer)…",
+        {
+          cross_origin_isolated: useProofWorkers,
+        },
+      );
       const proofPkg = await generateClaimProofs(claimData, {
-        useWorkers: true,
+        useWorkers: useProofWorkers,
         onProgress: (s) => {
           setStage(s);
           log.info(PROOF_STAGE_LABELS[s] ?? `Proof stage: ${s}`);

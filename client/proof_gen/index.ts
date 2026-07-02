@@ -22,6 +22,10 @@ import { deriveAccumulatorCommits } from "./accumulator.js";
 import { resolveFraudProof } from "./fraud.js";
 import { buildClaimPackageOnChain } from "./stellar/encoding.js";
 import { runProveJob } from "./workers/prove_shared.js";
+import {
+  canUseZkProofWorkers,
+  normalizeProverError,
+} from "./runtime.js";
 
 export {
   hydrateClaimData,
@@ -49,6 +53,10 @@ export {
 } from "./stellar/transaction.js";
 export { submitClaim } from "./stellar/submit.js";
 export { claimPackageToScVal, buildClaimPackageOnChain } from "./stellar/encoding.js";
+export {
+  canUseZkProofWorkers,
+  isCrossOriginIsolatedBrowser,
+} from "./runtime.js";
 
 const WORKER_URLS: Record<CircuitName, string> = {
   policy_validity: "./workers/policy.worker.ts",
@@ -76,7 +84,7 @@ function runWorker(
     };
     worker.onerror = (err) => {
       worker.terminate();
-      reject(err);
+      reject(normalizeProverError(err));
     };
     worker.postMessage(msg);
   });
@@ -112,7 +120,8 @@ export async function generateClaimProofs(
   claim: ClaimData,
   options: GenerateClaimProofsOptions = {},
 ): Promise<ProofPackage> {
-  const useWorkers = options.useWorkers ?? true;
+  const useWorkers =
+    options.useWorkers ?? (typeof Worker !== "undefined" && canUseZkProofWorkers());
   const onProgress = options.onProgress;
   const onCircuitComplete = options.onCircuitComplete;
   await initPoseidon2();
