@@ -24,6 +24,7 @@ import {
   createUnsignedClaimPreparer,
   generateClaimProofs,
 } from "@zklaim/proof-gen";
+import { ensureNodeProofGenInitialized } from "@zklaim/proof-gen/nodeInit";
 import { loadDemoClaimData } from "@zklaim/proof-gen/demo";
 
 function nullifierToHex(value: bigint | Uint8Array): string {
@@ -281,6 +282,7 @@ async function simulateSubmitClaim(
 }
 
 async function main() {
+  ensureNodeProofGenInitialized();
   const env = loadEnv();
   const rpcUrl = env.STELLAR_RPC_URL ?? "https://soroban-testnet.stellar.org";
   const networkPassphrase = env.STELLAR_NETWORK_PASSPHRASE ?? Networks.TESTNET;

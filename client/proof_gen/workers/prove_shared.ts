@@ -1,3 +1,5 @@
+import { setCircuitLoader } from "../circuits.js";
+import { createFetchCircuitLoader } from "../browserArtifacts.js";
 import type { CircuitName, CircuitProofResult } from "../inputs.js";
 import {
   proveAccumCircuit,
@@ -5,6 +7,8 @@ import {
   proveDoctorCircuit,
   provePolicyCircuit,
 } from "../circuits.js";
+
+setCircuitLoader(createFetchCircuitLoader("/wasm"));
 
 export type ProveHandler = (
   circuit: CircuitName,

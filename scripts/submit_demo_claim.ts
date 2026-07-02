@@ -8,6 +8,7 @@
  */
 import { Keypair, Networks } from "@stellar/stellar-sdk";
 import { generateClaimProofs, buildClaimTransaction } from "@zklaim/proof-gen";
+import { ensureNodeProofGenInitialized } from "@zklaim/proof-gen/nodeInit";
 import { loadDemoClaimData } from "@zklaim/proof-gen/demo";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,6 +22,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
 
 async function main() {
+  ensureNodeProofGenInitialized();
   const simulateOnly = process.argv.includes("--simulate-only");
   const env = loadDotEnv(ROOT);
   const rpcUrl =

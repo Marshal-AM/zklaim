@@ -14,7 +14,8 @@
     "./stellar/sorobanDebug": "./stellar/sorobanDebug.ts",
     "./stellar/bytes": "./stellar/bytes.ts",
     "./stellar/encoding": "./stellar/encoding.ts",
-    "./circuits": "./circuits.ts"
+    "./circuits": "./circuits.ts",
+    "./nodeInit": "./nodeInit.ts"
   },
   "scripts": {
     "test": "vitest run",

@@ -2,9 +2,11 @@ import {
   hydrateClaimData,
   setCircuitLoader,
   setFraudTreeJson,
+  setZkProofWorkerConstructors,
   type AspTreeArtifact,
   type PolicyTreeArtifact,
 } from "@zklaim/proof-gen";
+import { zkProofWorkerConstructors } from "./zkProofWorkers";
 import { createFetchCircuitLoader } from "@zklaim/proof-gen/browserArtifacts";
 import { fieldFromHex } from "@zklaim/scripts";
 import type { ClaimTokenPayload } from "./claimToken";
@@ -26,6 +28,7 @@ let loadersInitialized = false;
 export function initBrowserProofGen(): void {
   if (loadersInitialized) return;
   setCircuitLoader(createFetchCircuitLoader("/wasm"));
+  setZkProofWorkerConstructors(zkProofWorkerConstructors);
   loadersInitialized = true;
 }
 

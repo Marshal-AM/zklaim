@@ -56,25 +56,42 @@ export { claimPackageToScVal, buildClaimPackageOnChain } from "./stellar/encodin
 export {
   canUseZkProofWorkers,
   isCrossOriginIsolatedBrowser,
+  normalizeProverError,
 } from "./runtime.js";
 
-const WORKER_URLS: Record<CircuitName, string> = {
-  policy_validity: "./workers/policy.worker.ts",
-  amount_range: "./workers/amount.worker.ts",
-  doctor_attestation: "./workers/doctor.worker.ts",
-  deductible_accumulator: "./workers/accum.worker.ts",
-  category_nonmembership: "./workers/category.worker.ts",
-};
+export type ZkProofWorkerConstructor = new () => Worker;
+
+let zkProofWorkerConstructors: Partial<
+  Record<CircuitName, ZkProofWorkerConstructor>
+> | null = null;
+
+/** Register Vite `?worker` constructors from the app bundle (required for production). */
+export function setZkProofWorkerConstructors(
+  constructors: Record<CircuitName, ZkProofWorkerConstructor>,
+): void {
+  zkProofWorkerConstructors = constructors;
+}
+
+export function hasZkProofWorkerConstructors(): boolean {
+  return zkProofWorkerConstructors !== null;
+}
 
 function runWorker(
   circuit: CircuitName,
   inputs: Record<string, unknown>,
 ): Promise<CircuitProofResult> {
-  return new Promise((resolve, reject) => {
-    const worker = new Worker(
-      new URL(WORKER_URLS[circuit], import.meta.url),
-      { type: "module" },
+  const WorkerCtor = zkProofWorkerConstructors?.[circuit];
+  if (!WorkerCtor) {
+    return Promise.reject(
+      new Error(
+        `ZK proof worker not registered for ${circuit}. ` +
+          "Call setZkProofWorkerConstructors from the app bundle.",
+      ),
     );
+  }
+
+  return new Promise((resolve, reject) => {
+    const worker = new WorkerCtor();
     const msg: WorkerProveMessage = { type: "PROVE", circuit, inputs };
     worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
       worker.terminate();
@@ -95,8 +112,16 @@ async function proveWithMode(
   inputs: Record<string, unknown>,
   useWorkers: boolean,
 ): Promise<CircuitProofResult> {
-  if (useWorkers && typeof Worker !== "undefined") {
-    return runWorker(circuit, inputs);
+  if (useWorkers && typeof Worker !== "undefined" && zkProofWorkerConstructors) {
+    try {
+      return await runWorker(circuit, inputs);
+    } catch (err) {
+      console.warn(
+        `[zk] worker failed for ${circuit}, falling back to main thread`,
+        err,
+      );
+      return runProveJob(circuit, inputs);
+    }
   }
   return runProveJob(circuit, inputs);
 }
@@ -121,7 +146,8 @@ export async function generateClaimProofs(
   options: GenerateClaimProofsOptions = {},
 ): Promise<ProofPackage> {
   const useWorkers =
-    options.useWorkers ?? (typeof Worker !== "undefined" && canUseZkProofWorkers());
+    options.useWorkers ??
+    canUseZkProofWorkers(hasZkProofWorkerConstructors());
   const onProgress = options.onProgress;
   const onCircuitComplete = options.onCircuitComplete;
   await initPoseidon2();

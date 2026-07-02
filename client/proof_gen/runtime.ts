@@ -16,18 +16,40 @@ export function isCrossOriginIsolatedBrowser(): boolean {
     : false;
 }
 
-export function canUseZkProofWorkers(): boolean {
-  return typeof Worker !== "undefined" && isCrossOriginIsolatedBrowser();
+export function canUseZkProofWorkers(workersRegistered = false): boolean {
+  return (
+    typeof Worker !== "undefined" &&
+    isCrossOriginIsolatedBrowser() &&
+    workersRegistered
+  );
+}
+
+function errorEventDetails(err: object): string | null {
+  const ev = err as {
+    message?: string;
+    filename?: string;
+    lineno?: number;
+    colno?: number;
+  };
+  if (
+    !("message" in ev || "filename" in ev || "lineno" in ev || "colno" in ev)
+  ) {
+    return null;
+  }
+  const parts = [
+    ev.message || "Web Worker failed while generating ZK proofs",
+    ev.filename
+      ? `at ${ev.filename}${ev.lineno ? `:${ev.lineno}` : ""}${ev.colno ? `:${ev.colno}` : ""}`
+      : "",
+  ].filter(Boolean);
+  return parts.join(" ");
 }
 
 export function normalizeProverError(err: unknown): Error {
   if (err instanceof Error) return err;
-  if (err instanceof ErrorEvent) {
-    const parts = [
-      err.message || "Web Worker failed while generating ZK proofs",
-      err.filename ? `at ${err.filename}${err.lineno ? `:${err.lineno}` : ""}` : "",
-    ].filter(Boolean);
-    return new Error(parts.join(" "));
+  if (err && typeof err === "object") {
+    const details = errorEventDetails(err);
+    if (details) return new Error(details);
   }
   return new Error(String(err));
 }

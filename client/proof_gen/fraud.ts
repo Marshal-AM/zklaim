@@ -14,7 +14,6 @@ import type {
   FraudProofData,
   FraudTreeArtifact,
 } from "./inputs.js";
-import { isNodeRuntime } from "./runtime.js";
 
 let fraudTreeOverride: FraudTreeArtifact | null = null;
 
@@ -87,10 +86,6 @@ async function resolveFraudTree(
 ): Promise<FraudTreeArtifact | null> {
   if (fraudTreeJson) return fraudTreeJson;
   if (fraudTreeOverride) return fraudTreeOverride;
-  if (isNodeRuntime()) {
-    const { loadFraudTreeFromFs } = await import("./fraud_node.js");
-    return loadFraudTreeFromFs();
-  }
   const { loadFraudTreeFromFetch } = await import("./browserArtifacts.js");
   return loadFraudTreeFromFetch();
 }

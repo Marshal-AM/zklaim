@@ -5,7 +5,6 @@ import { fieldFromHex, fieldToBytesBE, fieldToHex } from "@zklaim/scripts";
 import type { CircuitName, CircuitProofResult } from "./inputs.js";
 import { PROOF_BYTES } from "./inputs.js";
 import { boolToField } from "./accumulator.js";
-import { isNodeRuntime } from "./runtime.js";
 
 const circuitCache = new Map<CircuitName, CompiledCircuit>();
 let circuitLoader: ((name: CircuitName) => Promise<CompiledCircuit>) | null =
@@ -24,9 +23,6 @@ export async function loadCircuit(name: CircuitName): Promise<CompiledCircuit> {
   let circuit: CompiledCircuit;
   if (circuitLoader) {
     circuit = await circuitLoader(name);
-  } else if (isNodeRuntime()) {
-    const { loadCircuitFromFs } = await import("./circuits_node.js");
-    circuit = loadCircuitFromFs(name);
   } else {
     const { loadCircuitFromFetch } = await import("./browserArtifacts.js");
     circuit = await loadCircuitFromFetch(name);

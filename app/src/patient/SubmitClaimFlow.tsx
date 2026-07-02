@@ -4,6 +4,7 @@ import {
   createUnsignedClaimPreparer,
   submitClaim,
   canUseZkProofWorkers,
+  hasZkProofWorkerConstructors,
   type ProofProgressStage,
 } from "@zklaim/proof-gen";
 import { fieldToHex } from "@zklaim/scripts";
@@ -277,7 +278,9 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         insurer: claimData.insurer,
       });
 
-      const useProofWorkers = canUseZkProofWorkers();
+      const useProofWorkers = canUseZkProofWorkers(
+        hasZkProofWorkerConstructors(),
+      );
       log.info(
         useProofWorkers
           ? "Generating ZK proofs in Web Workers (~7–10s)…"

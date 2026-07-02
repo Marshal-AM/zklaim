@@ -1,5 +1,6 @@
 import { rpc } from "@stellar/stellar-sdk";
 import { generateClaimProofs } from "@zklaim/proof-gen";
+import { ensureNodeProofGenInitialized } from "@zklaim/proof-gen/nodeInit";
 import { loadDemoClaimData } from "@zklaim/proof-gen/demo";
 import { buildClaimTransaction } from "@zklaim/proof-gen";
 import { fieldToHex } from "@zklaim/scripts";
@@ -10,6 +11,7 @@ import { loadDotEnv } from "./lib/envWallet.js";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 async function main() {
+  ensureNodeProofGenInitialized();
   const env = loadDotEnv(ROOT);
   const patient =
     process.env.PATIENT_PUBLIC_KEY ??
