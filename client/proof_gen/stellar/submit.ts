@@ -7,7 +7,7 @@ import {
 } from "./sorobanDebug.js";
 import {
   decodeSubmitErrorXdr,
-  isSorobanMetadataExpiredError,
+  isRetryableSubmitError,
 } from "./errors.js";
 
 export interface SubmitClaimParams {
@@ -132,7 +132,7 @@ export async function submitClaim(
       });
 
       if (
-        isSorobanMetadataExpiredError(detail) &&
+        isRetryableSubmitError(detail) &&
         submitAttempt < maxSubmitRetries - 1
       ) {
         continue;

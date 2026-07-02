@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { SubmitClaimFlow } from "./SubmitClaimFlow";
 import { usePatientStore } from "../store/patientStore";
@@ -22,9 +23,18 @@ export function PatientSubmitPage() {
     (c) => c.status === "pending" || c.status === "failed",
   );
 
-  const selectedClaim =
-    (claimId ? inbox.find((c) => c.id === claimId) : null) ??
-    (submittable.length === 1 ? submittable[0] : null);
+  // Keep the routed claim mounted through submit → success UI (status becomes "submitted").
+  const selectedClaim = claimId
+    ? (inbox.find((c) => c.id === claimId) ?? null)
+    : submittable.length === 1
+      ? submittable[0]
+      : null;
+
+  useEffect(() => {
+    if (!claimId && submittable.length === 1) {
+      navigate(`/patient/submit/${submittable[0].id}`, { replace: true });
+    }
+  }, [claimId, submittable, navigate]);
 
   if (!walletAddress) {
     return (

@@ -25,6 +25,13 @@ export function isSorobanMetadataExpiredError(message: string): boolean {
   );
 }
 
+/** Transient submit errors that usually succeed on a fresh simulate → sign → send. */
+export function isRetryableSubmitError(message: string): boolean {
+  return (
+    isSorobanMetadataExpiredError(message) || message.includes("txMalformed")
+  );
+}
+
 export function decodeSubmitErrorXdr(xdrBase64: string | undefined): string {
   if (!xdrBase64) return "unknown submit error";
   try {

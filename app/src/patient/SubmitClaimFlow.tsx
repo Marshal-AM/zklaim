@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   generateClaimProofs,
   createUnsignedClaimPreparer,
@@ -78,6 +79,7 @@ const PROOF_STAGE_LABELS: Record<ProofProgressStage, string> = {
 };
 
 export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
+  const navigate = useNavigate();
   const identity = usePatientStore((s) => s.identity)!;
   const updateInboxClaim = usePatientStore((s) => s.updateInboxClaim);
   const addHistory = usePatientStore((s) => s.addHistory);
@@ -136,6 +138,7 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
   }
 
   async function handleSubmit() {
+    navigate(`/patient/submit/${claim.id}`, { replace: true });
     setBusy(true);
     setLogEntries([]);
     log.clear();
@@ -386,6 +389,33 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         balanceAfter: formatUsdc(balanceAfter),
       });
 
+      if (claim.deliveryId) {
+        log.info("Marking Supabase delivery as claimed…", {
+          deliveryId: claim.deliveryId,
+        });
+        void markDeliveryClaimed(claim.deliveryId)
+          .then(() => {
+            log.success("Supabase delivery marked claimed");
+          })
+          .catch((err) => {
+            log.warn("Supabase delivery update failed (non-fatal)", err);
+          });
+      }
+
+      // Show success UI before inbox status changes (avoids parent unmounting this flow).
+      setReceipt({
+        nullifier: nullifierHex,
+        txHash: result.hash,
+        usdcReceived,
+        patientAddress: address,
+        payload,
+      });
+      log.success("Submit claim completed successfully");
+      setRunFinished(true);
+      setRunOutcome("success");
+      setCompletedAt(Date.now());
+      setShowSummaryModal(true);
+
       const newMet =
         identity.accumulator_met_cents + payload.amount_cents;
       const updatedIdentity = {
@@ -419,32 +449,6 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
       addHistory(histEntry);
       await savePatientHistory(address, [histEntry, ...history]);
       log.success("Claim history saved", histEntry);
-
-      if (claim.deliveryId) {
-        log.info("Marking Supabase delivery as claimed…", {
-          deliveryId: claim.deliveryId,
-        });
-        void markDeliveryClaimed(claim.deliveryId)
-          .then(() => {
-            log.success("Supabase delivery marked claimed");
-          })
-          .catch((err) => {
-            log.warn("Supabase delivery update failed (non-fatal)", err);
-          });
-      }
-
-      setReceipt({
-        nullifier: nullifierHex,
-        txHash: result.hash,
-        usdcReceived,
-        patientAddress: address,
-        payload,
-      });
-      log.success("Submit claim completed successfully");
-      setRunFinished(true);
-      setRunOutcome("success");
-      setCompletedAt(Date.now());
-      setShowSummaryModal(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Submit failed";
       log.error("Submit claim failed", err);
@@ -545,12 +549,15 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
     );
   }
 
+  const historyEntry = history.find((h) => h.claimId === claim.id);
+
   if (
     claim.status === "submitted" &&
     !receipt &&
     !busy &&
     !hasStarted &&
-    !showSettlement
+    !showSettlement &&
+    !showSummaryModal
   ) {
     return (
       <div className="space-y-4">
@@ -559,11 +566,21 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
             Claim already settled
           </h3>
           <p className="text-sm text-muted-foreground">
-            This claim was submitted successfully. Use{" "}
-            <strong className="font-[650] text-foreground">Add to Passport</strong>{" "}
-            on the settlement screen right after submit, or open claim history if
-            you navigated away before adding it.
+            This claim was submitted successfully.
+            {historyEntry
+              ? " Open the explorer link below or claim history for details."
+              : " Use claim history for details."}
           </p>
+          {historyEntry ? (
+            <a
+              href={`https://stellar.expert/explorer/testnet/tx/${historyEntry.txHash}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-outline-primary inline-flex text-xs"
+            >
+              View on explorer
+            </a>
+          ) : null}
           <button
             type="button"
             onClick={onComplete}

@@ -8,24 +8,34 @@ Private medical claim settlement on Stellar via Noir UltraHonk proofs, Authorize
 
 ---
 
+## Important Links
+
+| Resource | Link |
+|----------|------|
+| Demo video | [YouTube](https://www.youtube.com/watch?v=6MO-IkHvOYw) |
+| Pitch deck | [Canva](https://canva.link/mv6ah09yyudjjpj) |
+| Live app | [zklaim-app-lilac.vercel.app](https://zklaim-app-lilac.vercel.app/) |
+
+---
+
 ## Deployed Contracts (Stellar Testnet)
 
-All on-chain logic lives in **seven Soroban smart contracts** (not EVM/Solidity). Each row links to [Stellar Expert](https://stellar.expert/explorer/testnet) for live contract inspection.
+All on-chain logic lives in **seven Soroban smart contracts** . Each row links to [Stellar Expert](https://stellar.expert/explorer/testnet) for live contract inspection.
 
 | Contract | Role | Circuit ID | Testnet Contract ID | Explorer |
 |----------|------|:----------:|---------------------|----------|
-| [`ultrahonk_verifier`](https://stellar.expert/explorer/testnet/contract/CCQIUDWBDTICZ4ACHATUVM5DXUUWULQZQTKIIVX6XX2SFVOLOQIB7OMS) | On-chain UltraHonk proof verification (BN254 pairing) | — (verifies 0–4) | `CCQIUDWBDTICZ4ACHATUVM5DXUUWULQZQTKIIVX6XX2SFVOLOQIB7OMS` | [View →](https://stellar.expert/explorer/testnet/contract/CCQIUDWBDTICZ4ACHATUVM5DXUUWULQZQTKIIVX6XX2SFVOLOQIB7OMS) |
-| [`asp_membership`](https://stellar.expert/explorer/testnet/contract/CCDTCHMALRVMQ27UILI24FWMWEN2XACBLIVSJ3F5CIK4QADVPAGPX65D) | Licensed physician ASP Merkle tree (depth 10) | — | `CCDTCHMALRVMQ27UILI24FWMWEN2XACBLIVSJ3F5CIK4QADVPAGPX65D` | [View →](https://stellar.expert/explorer/testnet/contract/CCDTCHMALRVMQ27UILI24FWMWEN2XACBLIVSJ3F5CIK4QADVPAGPX65D) |
-| [`asp_nonmembership`](https://stellar.expert/explorer/testnet/contract/CCZK6XRWBK2WGKU64CLSDDX2MJHWPJFW3JL3LAOUWXZFM2AZIPUWNTQY) | Fraud billing-pattern sparse Merkle blacklist (depth 16) | — | `CCZK6XRWBK2WGKU64CLSDDX2MJHWPJFW3JL3LAOUWXZFM2AZIPUWNTQY` | [View →](https://stellar.expert/explorer/testnet/contract/CCZK6XRWBK2WGKU64CLSDDX2MJHWPJFW3JL3LAOUWXZFM2AZIPUWNTQY) |
-| [`policy_registry`](https://stellar.expert/explorer/testnet/contract/CDOMII7OH6ZXARIZ6O3XF4FQEX6X34OCP3ETZU7SHKILPZD4VUFYW3CT) | Per-insurer coverage roots, amount bounds, expiry | — | `CDOMII7OH6ZXARIZ6O3XF4FQEX6X34OCP3ETZU7SHKILPZD4VUFYW3CT` | [View →](https://stellar.expert/explorer/testnet/contract/CDOMII7OH6ZXARIZ6O3XF4FQEX6X34OCP3ETZU7SHKILPZD4VUFYW3CT) |
-| [`deductible_tracker`](https://stellar.expert/explorer/testnet/contract/CDYEHGHRQ56CXZNGTCU6DOYSDNSRSSJ57VULQ3MS2CNYTALAV5NNZ4DY) | Per-patient private deductible accumulator state | 3 | `CDYEHGHRQ56CXZNGTCU6DOYSDNSRSSJ57VULQ3MS2CNYTALAV5NNZ4DY` | [View →](https://stellar.expert/explorer/testnet/contract/CDYEHGHRQ56CXZNGTCU6DOYSDNSRSSJ57VULQ3MS2CNYTALAV5NNZ4DY) |
-| [`claim_escrow`](https://stellar.expert/explorer/testnet/contract/CCJZBRSDHBMRBUVTORJCPAD7ZU6WOFOJY5ZJG5RTA45KWK4PDCAWVGVO) | Settlement orchestrator — proofs, fraud, payout, nullifiers | 0, 1, 2 (inline) + 3 (via tracker) | `CCJZBRSDHBMRBUVTORJCPAD7ZU6WOFOJY5ZJG5RTA45KWK4PDCAWVGVO` | [View →](https://stellar.expert/explorer/testnet/contract/CCJZBRSDHBMRBUVTORJCPAD7ZU6WOFOJY5ZJG5RTA45KWK4PDCAWVGVO) |
-| `passport_registry` | Per-patient claim passport + ZK credential issuance | 4 | `PASSPORT_REGISTRY_CONTRACT_ID` in `.env` (written by deploy) | [View →](https://stellar.expert/explorer/testnet/contract/) after deploy |
+| [`ultrahonk_verifier`](https://stellar.expert/explorer/testnet/contract/CBY2Q7HQZG2KDCZCCMTDP6BVGAUNV26U5RNKT2YEZDN6XS7Q7MHTVOEB) | On-chain UltraHonk proof verification (BN254 pairing) | — (verifies 0–4) | `CBY2Q7HQZG2KDCZCCMTDP6BVGAUNV26U5RNKT2YEZDN6XS7Q7MHTVOEB` | [View →](https://stellar.expert/explorer/testnet/contract/CBY2Q7HQZG2KDCZCCMTDP6BVGAUNV26U5RNKT2YEZDN6XS7Q7MHTVOEB) |
+| [`asp_membership`](https://stellar.expert/explorer/testnet/contract/CA7P26YPWBCJ475VNFJXR5Z24GZIY5AKAC62DDCNN4FCMH3ZAIA6XR4P) | Licensed physician ASP Merkle tree (depth 10) | — | `CA7P26YPWBCJ475VNFJXR5Z24GZIY5AKAC62DDCNN4FCMH3ZAIA6XR4P` | [View →](https://stellar.expert/explorer/testnet/contract/CA7P26YPWBCJ475VNFJXR5Z24GZIY5AKAC62DDCNN4FCMH3ZAIA6XR4P) |
+| [`asp_nonmembership`](https://stellar.expert/explorer/testnet/contract/CCRPHSHYQWRZAVLARMWRKSMNK7KCQU7MQXG2O4EFTNRZT7S6NE6GWWOG) | Fraud billing-pattern sparse Merkle blacklist (depth 16) | — | `CCRPHSHYQWRZAVLARMWRKSMNK7KCQU7MQXG2O4EFTNRZT7S6NE6GWWOG` | [View →](https://stellar.expert/explorer/testnet/contract/CCRPHSHYQWRZAVLARMWRKSMNK7KCQU7MQXG2O4EFTNRZT7S6NE6GWWOG) |
+| [`policy_registry`](https://stellar.expert/explorer/testnet/contract/CDWPICFLLI2HQSO4X4UYZT567J4G43IQPKAK6E5RDZH6C2GFQYI7OJCX) | Per-insurer coverage roots, amount bounds, expiry | — | `CDWPICFLLI2HQSO4X4UYZT567J4G43IQPKAK6E5RDZH6C2GFQYI7OJCX` | [View →](https://stellar.expert/explorer/testnet/contract/CDWPICFLLI2HQSO4X4UYZT567J4G43IQPKAK6E5RDZH6C2GFQYI7OJCX) |
+| [`deductible_tracker`](https://stellar.expert/explorer/testnet/contract/CCHJN6US4QVRO3TOGDVFHQ3FSE7IVMDYCR553WVQZW36QCK43Z6RZ5YP) | Per-patient private deductible accumulator state | 3 | `CCHJN6US4QVRO3TOGDVFHQ3FSE7IVMDYCR553WVQZW36QCK43Z6RZ5YP` | [View →](https://stellar.expert/explorer/testnet/contract/CCHJN6US4QVRO3TOGDVFHQ3FSE7IVMDYCR553WVQZW36QCK43Z6RZ5YP) |
+| [`claim_escrow`](https://stellar.expert/explorer/testnet/contract/CDNKOOSHNSFTCLFIISCTENSNCHEPL5CUCNS7WTJM7TAEOBCQCJYI4IAI) | Settlement orchestrator — proofs, fraud, payout, nullifiers | 0, 1, 2 (inline) + 3 (via tracker) | `CDNKOOSHNSFTCLFIISCTENSNCHEPL5CUCNS7WTJM7TAEOBCQCJYI4IAI` | [View →](https://stellar.expert/explorer/testnet/contract/CDNKOOSHNSFTCLFIISCTENSNCHEPL5CUCNS7WTJM7TAEOBCQCJYI4IAI) |
+| [`passport_registry`](https://stellar.expert/explorer/testnet/contract/CAFCAEWSKS5JC7HXNOEBVDV5IBNCO4QRIAPO53XQCEYZ4XPZCPMX3QAD) | Per-patient claim passport + ZK credential issuance | 4 | `CAFCAEWSKS5JC7HXNOEBVDV5IBNCO4QRIAPO53XQCEYZ4XPZCPMX3QAD` | [View →](https://stellar.expert/explorer/testnet/contract/CAFCAEWSKS5JC7HXNOEBVDV5IBNCO4QRIAPO53XQCEYZ4XPZCPMX3QAD) |
 | Circle USDC SAC | Settlement token (7-decimal Soroban asset) | — | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` | [View →](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA) |
 
 **Classic USDC issuer (testnet):** `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`
 
-**Transaction explorer pattern:** `https://stellar.expert/explorer/testnet/tx/{hash}`
+**Insurer / deployer (testnet):** `GBEQTRDIJYZPZG6OUIILUE5Z57RLMAWDF63BDAXENFD3CHP2XU2EYC7A` (`INSURER_FUND_ADDRESS` / `DEPLOYER_PUBLIC_KEY`)
 
 ---
 
@@ -78,7 +88,7 @@ All on-chain logic lives in **seven Soroban smart contracts** (not EVM/Solidity)
 
 ### What ZKlaim Is
 
-ZKlaim is a **zero-knowledge insurance claim settlement system** built entirely on the Stellar blockchain. An insured patient submits a medical claim and receives a USDC reimbursement in a single Soroban transaction — without the blockchain, the insurer's operations team, or any third party learning the patient's diagnosis, treating physician, or exact billed amount.
+ZKlaim is a **zero-knowledge medical insurance claim settlement system** built entirely on the Stellar blockchain. An insured patient submits a medical claim and receives a USDC reimbursement in a single Soroban transaction — without the blockchain, the insurer's operations team, or any third party learning the patient's diagnosis, treating physician, or exact billed amount.
 
 The surface is a **Submit Claim** button. The depth is a composition of every zero-knowledge primitive Stellar has introduced across Protocols 22, 25 (X-Ray), and 26 (Yardstick):
 

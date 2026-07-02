@@ -108,10 +108,11 @@ export function explainSubmitClaimError(message: string): SubmitClaimErrorInfo {
 
   if (
     msg.includes("txSorobanInvalid") ||
-    msg.includes("Soroban metadata expired")
+    msg.includes("Soroban metadata expired") ||
+    msg.includes("txMalformed")
   ) {
     return {
-      toast: `Soroban transaction rejected at submit. Retry immediately. If this persists, ${REDEPLOY_HINT}`,
+      toast: `Soroban transaction rejected at submit (stale tx envelope). Retry — the app will re-simulate automatically. If this persists, ${REDEPLOY_HINT}`,
       invalidateAlignment: false,
     };
   }

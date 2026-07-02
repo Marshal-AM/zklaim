@@ -22,4 +22,11 @@ describe("explainSubmitClaimError", () => {
     );
     expect(err.toast).not.toContain("Doctor registry");
   });
+
+  it("maps txMalformed to retry guidance", () => {
+    const err = explainSubmitClaimError(
+      "sendTransaction failed: txMalformed (fee charged: 998016 stroops)",
+    );
+    expect(err.toast).toContain("re-simulate");
+  });
 });
