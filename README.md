@@ -2,7 +2,7 @@
 
 > Prove your insurance claim is valid. Receive payment. Reveal nothing about your diagnosis.
 
-Private medical claim settlement on Stellar via Noir UltraHonk proofs, Authorized Service Provider (ASP) compliance trees, recursive deductible accumulation, and Circle USDC escrow — a compositional zero-knowledge system built on **Stellar**.
+Private medical claim settlement on Stellar via Noir UltraHonk proofs, Authorized Service Provider (ASP) compliance trees, recursive deductible accumulation, Circle USDC escrow, and a **Health Passport** for selective disclosure — a compositional zero-knowledge system built on **Stellar**.
 
 **Stack:** Soroban smart contracts (Rust/WASM) · Noir 1.0.0-beta.3 · Barretenberg UltraHonk 0.87.0 · BN254 host functions (CAP-0074/0075/0080) · Stellar testnet
 
@@ -47,6 +47,7 @@ Captured from [SubmitClaimFlow.tsx](https://github.com/Marshal-AM/zklaim/blob/ma
 | Soroban | `Freighter signed`, `sendTransaction response` `PENDING` | [sorobanWallet.ts](https://github.com/Marshal-AM/zklaim/blob/main/app/src/lib/sorobanWallet.ts#L238), [submit.ts](https://github.com/Marshal-AM/zklaim/blob/main/client/proof_gen/stellar/submit.ts#L53) | Fresh simulate → sign → immediate send |
 | **Settlement** | `Transaction confirmed on ledger` **`f4600e4a…246c61`** | [`submit_claim()`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) | [On-chain tx](https://stellar.expert/explorer/testnet/tx/f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61) — nullifier spent, accumulator updated, **+$0.80 USDC** (20% coinsurance; deductible not yet met) |
 | Post-settle | `nullifier` `0x181a3bb7…`, `new_met_cents: 80400` | [`compute_payout()`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/escrow.rs#L22) | Payout formula applied; local identity accumulator synced |
+| Passport | **Add to Passport** in UI | [`append_leaf()`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L75), [`passportAppend.ts`](https://github.com/Marshal-AM/zklaim/blob/main/app/src/lib/passportAppend.ts) | Patient opts in; coarse leaf (category `J`, amount bucket, month) committed — not in submit log unless exercised |
 
 ---
 
@@ -75,14 +76,16 @@ All on-chain logic lives in **seven Soroban smart contracts**. Each row links to
 
 ## Noir Circuits (ZK Layer)
 
-| Circuit | ID | Proof bytes | Noir source | On-chain consumer |
-|---------|---:|------------:|-------------|-------------------|
-| `policy_validity` | 0 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/policy_validity/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
-| `amount_range` | 1 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/amount_range/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
-| `doctor_attestation` | 2 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/doctor_attestation/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
-| `deductible_accumulator` | 3 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/deductible_accumulator/src/main.nr#L1) | [`deductible_tracker.update_accumulator`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/deductible_tracker/src/lib.rs#L53) |
-| `category_nonmembership` | 4 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/category_nonmembership/src/main.nr#L6) | [`passport_registry.verify_credential`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120) |
-| `poseidon_reference` | — | — | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/poseidon_reference/src/main.nr#L1) | Alignment test only ([poseidon2.ts](https://github.com/Marshal-AM/zklaim/blob/main/scripts/lib/poseidon2.ts#L1)) |
+| Circuit | ID | Noir source | On-chain consumer |
+|---------|---:|-------------|-------------------|
+| `policy_validity` | 0 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/policy_validity/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
+| `amount_range` | 1 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/amount_range/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
+| `doctor_attestation` | 2 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/doctor_attestation/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
+| `deductible_accumulator` | 3 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/deductible_accumulator/src/main.nr#L1) | [`deductible_tracker.update_accumulator`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/deductible_tracker/src/lib.rs#L53) |
+| `category_nonmembership` | 4 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/category_nonmembership/src/main.nr#L6) | [`passport_registry.verify_credential`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120) — **selective disclosure** |
+| `poseidon_reference` | — | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/poseidon_reference/src/main.nr#L1) | Alignment test only ([poseidon2.ts](https://github.com/Marshal-AM/zklaim/blob/main/scripts/lib/poseidon2.ts#L1)) |
+
+Circuits 0–3 settle claims; **circuit 4 is the Health Passport** — prove facts about your claim *history* without opening individual visits.
 
 Circuit IDs: [circuit_ids.rs](https://github.com/Marshal-AM/zklaim/blob/main/contracts/common/src/circuit_ids.rs#L1) · Client proving: [circuits.ts](https://github.com/Marshal-AM/zklaim/blob/main/client/proof_gen/circuits.ts#L54) · WASM artifacts: [app/public/wasm/](https://github.com/Marshal-AM/zklaim/tree/main/app/public/wasm)
 
@@ -97,6 +100,7 @@ Circuit IDs: [circuit_ids.rs](https://github.com/Marshal-AM/zklaim/blob/main/con
    - [What ZKlaim Is](https://github.com/Marshal-AM/zklaim/blob/main/README.md#what-zklaim-is)
    - [The Privacy Boundary](https://github.com/Marshal-AM/zklaim/blob/main/README.md#the-privacy-boundary)
    - [Technical Innovations](https://github.com/Marshal-AM/zklaim/blob/main/README.md#technical-innovations)
+   - [Health Passport & Selective Disclosure](https://github.com/Marshal-AM/zklaim/blob/main/README.md#health-passport--selective-disclosure)
 2. [The Problem](https://github.com/Marshal-AM/zklaim/blob/main/README.md#the-problem)
    - [Medical Privacy Is Broken Everywhere](https://github.com/Marshal-AM/zklaim/blob/main/README.md#medical-privacy-is-broken-everywhere)
    - [Why Existing Approaches Fail](https://github.com/Marshal-AM/zklaim/blob/main/README.md#why-existing-approaches-fail)
@@ -142,6 +146,8 @@ Circuit IDs: [circuit_ids.rs](https://github.com/Marshal-AM/zklaim/blob/main/con
 
 ZKlaim is a **zero-knowledge medical insurance claim settlement system** built entirely on the Stellar blockchain. An insured patient submits a medical claim and receives a USDC reimbursement in a single Soroban transaction — without the blockchain, the insurer's operations team, or any third party learning the patient's diagnosis, treating physician, or exact billed amount.
 
+Settlement is only half the privacy story. After claims are paid, patients still need to **prove coverage history** to hospitals, employers, or new insurers — without handing over a full medical record. ZKlaim's **Health Passport** ([`passport_registry`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120)) stores coarse, commitment-based claim leaves on-chain and lets the patient issue **selective disclosure credentials**: zero-knowledge proofs that a category of care is *absent* from their history (e.g. no mental-health-category claims), or that their on-chain passport root matches a committed tree, **without revealing any individual visit, ICD code, or amount**.
+
 The surface is a **Submit Claim** button. The depth is a composition of every zero-knowledge primitive Stellar has introduced across Protocols 22, 25 (X-Ray), and 26 (Yardstick):
 
 - **BN254 elliptic curve host functions** for on-chain UltraHonk verification
@@ -158,8 +164,9 @@ This is not a privacy pool with insurance branding. It is the first Stellar-nati
 3. A licensed physician attested the claim
 4. The patient's deductible state transitioned correctly
 5. The billing pattern is not on a known fraud blacklist
+6. *(Post-settlement)* A requested ICD **letter category** does not appear anywhere in the patient's passport — via [`category_nonmembership`](https://github.com/Marshal-AM/zklaim/blob/main/circuits/category_nonmembership/src/main.nr#L6), without listing past claims
 
-…while revealing **none** of the underlying medical data on-chain.
+…while revealing **none** of the underlying medical data on-chain during settlement, and **only the chosen disclosure statement** when sharing a passport credential.
 
 ### The Privacy Boundary
 
@@ -181,9 +188,14 @@ ZKlaim's threat model distinguishes sharply between what the ledger must see to 
 | `billing_pattern_hash` | Public | Coarse fraud fingerprint (category + bucket, not diagnosis) |
 | `deductible_met` flag | Public (1 byte in field) | Triggers payout formula change |
 | Accumulator commitments | Public | Running state — not individual amounts |
+| Passport leaf commitments | Public (coarse) | [`passport_registry`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L75) — ICD **letter**, amount **bucket**, visit **month**; not full diagnosis |
+| Passport credential | Public (statement + TTL) | [`verify_credential`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120) — e.g. "no category C claims"; individual leaves stay hidden |
+| Individual passport leaf secrets | **Never** | Witness to [`category_nonmembership`](https://github.com/Marshal-AM/zklaim/blob/main/circuits/category_nonmembership/src/main.nr#L6) only |
 | USDC payout amount | Public | Settlement value (coinsurance-adjusted if deductible not met) |
 
 An observer watching the insurer's Stellar address sees a USDC outflow and a nullifier. They do **not** see a diagnosis code, a doctor name, or a line-item medical bill. The payout amount alone cannot be inverted to a diagnosis — multiple ICD codes and providers can produce identical reimbursement amounts within the same policy band.
+
+For **passport credentials**, the ledger exposes only the patient's passport root, the excluded category field, active leaf count, and a time-limited credential record — never the underlying visit details. Selective disclosure means verifiers get the minimum statement the patient chose to prove, not the full tree.
 
 ```mermaid
 flowchart LR
@@ -229,7 +241,34 @@ Nethermind's Privacy Pools ASP architecture is repurposed: instead of financial 
 
 **5. Health Passport selective disclosure**
 
-After settlement, patients append leaves to a per-patient passport tree and can issue **category non-membership credentials** (Circuit 4) — e.g., proving "I have no mental-health-category claims in my history" without revealing any individual claim.
+Insurance privacy does not end at payout. Employers, prior-auth desks, and new insurers often ask: *"Do you have a history of X?"* — forcing patients to either over-share full records or refuse and lose access.
+
+ZKlaim separates **settlement** (circuits 0–3, private per visit) from **disclosure** (circuit 4, patient-chosen):
+
+1. After [`submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50), [`claim_escrow`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) emits `passport/leaf_rdy` — the patient may [`append_leaf`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L75) with a commitment derived from the spent nullifier ([`passportAppend.ts`](https://github.com/Marshal-AM/zklaim/blob/main/app/src/lib/passportAppend.ts)).
+2. Each leaf encodes only **coarse metadata**: ICD letter category (e.g. `J` for respiratory), amount bucket, visit month — never the full ICD-10 code or exact cents ([`passport_registry` leaf format](https://github.com/Marshal-AM/zklaim/blob/main/README.md#passport-registry)).
+3. In the app ([`PatientPassportSharePage`](https://github.com/Marshal-AM/zklaim/blob/main/app/src/patient/PatientPassportSharePage.tsx)), the patient picks categories to **exclude** and generates a [`category_nonmembership`](https://github.com/Marshal-AM/zklaim/blob/main/circuits/category_nonmembership/src/main.nr#L6) proof: *"Every leaf in my passport tree is **not** in category C (mental health)."*
+4. [`verify_credential`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120) checks the proof on-chain and mints a **time-limited credential ID** a whitelisted verifier can validate with [`is_credential_valid`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120).
+
+**Why this is useful:** A patient can satisfy a gym waiver, life-insurance questionnaire, or employer wellness program with a **cryptographic yes/no about a category** — not a PDF of every doctor visit. Verifiers learn only what the patient explicitly proves; the passport root anchors integrity without exposing the leaf set.
+
+### Health Passport & Selective Disclosure
+
+The Health Passport is ZKlaim's answer to **post-settlement privacy**. Private claim settlement (circuits 0–3) ensures no diagnosis hits the ledger during payout. The passport (circuit 4) ensures patients are not forced to **re-disclose** that same history later as plaintext.
+
+| Stakeholder | Typical ask | Without passport | With selective disclosure |
+|-------------|-------------|------------------|---------------------------|
+| Employer wellness program | "No behavioral-health claims this year?" | Upload full EOB / portal export | Credential: category `C` absent from passport tree |
+| Life insurer underwriting | "Any mental-health or substance-use history?" | HIPAA release of all claims | Patient-chosen excluded categories; verifier sees TTL credential ID only |
+| Hospital prior auth | "Prior respiratory admissions?" | Fax entire chart | Prove absence of category `J` without listing other visits |
+| Gym / travel waiver | "No contagious-disease treatment in last 90 days?" | Doctor's note with dates | Month + category buckets prove absence without ICD codes |
+
+**Design principles:**
+
+- **Coarse by default** — leaves store ICD **letter** (A–Z bucket), amount **bucket** ($500 bands), and visit **month** — enough to answer category questions, not enough to reconstruct a diagnosis ([`passportCategories.ts`](https://github.com/Marshal-AM/zklaim/blob/main/app/src/lib/passportCategories.ts)).
+- **Patient-initiated** — nothing is appended until the patient clicks **Add to Passport** after settlement ([`passportAppend.ts`](https://github.com/Marshal-AM/zklaim/blob/main/app/src/lib/passportAppend.ts)).
+- **Verifier-gated** — only admin-whitelisted addresses can receive credentials ([`register_verifier`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120)).
+- **Time-bounded** — credentials expire after `ttl_ledgers`; verifiers call [`is_credential_valid`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120) at check-in time.
 
 ```mermaid
 flowchart TB
@@ -286,6 +325,8 @@ The diagnosis is not on-chain, but the **pattern** is highly revealing:
 
 **Colonial Pipeline's 2023 breach** exposed 140 million claim records. Centralized portals are centralized breach surfaces. The problem is not merely "put it on a private blockchain" — consortium chains give insurers privacy from each other but not from themselves. Patient data remains fully visible to the platform operator.
 
+Even when claims are paid, **downstream disclosure** repeats the harm: prior-auth forms, disability paperwork, and employer HR portals ask for full claim exports. Patients face a false choice — disclose everything or lose coverage. There is no standard way to prove *absence* of a sensitive category (e.g. behavioral health) without revealing unrelated visits. ZKlaim's Health Passport targets that second-order privacy gap.
+
 ### Why Existing Approaches Fail
 
 | Approach | Privacy model | Domain validity | Verdict |
@@ -306,8 +347,9 @@ There is no system on any blockchain that can simultaneously prove:
 - **(b)** This provider is licensed
 - **(c)** This amount is within policy limits
 - **(d)** My running deductible is at the correct level
+- **(e)** A sensitive care category is absent from my history — without exporting every claim line
 
-…while revealing none of the underlying data. ZKlaim builds that system on Stellar, where the cryptographic primitives to verify BN254 UltraHonk proofs and Poseidon2 Merkle trees **natively on-chain** make the economics viable.
+…while revealing none of the underlying data during settlement, and only a **patient-chosen disclosure statement** when sharing a Health Passport credential. ZKlaim builds that system on Stellar, where the cryptographic primitives to verify BN254 UltraHonk proofs and Poseidon2 Merkle trees **natively on-chain** make the economics viable.
 
 | Requirement | Meaning | Prior art on Stellar |
 |-------------|---------|---------------------|
@@ -317,20 +359,25 @@ There is no system on any blockchain that can simultaneously prove:
 | Private deductible tracking | Know when deductible is met without revealing past claims | **Does not exist on any chain** |
 | Fraud prevention without surveillance | Block known fraud patterns | ASP non-membership exists; not applied to billing |
 | On-chain USDC settlement | Payment without fiat bridge | Native via Soroban SAC |
+| Selective history disclosure | Prove category absence without full record | **Health Passport + circuit 4** ([`passport_registry`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120)) |
 
 ---
 
 ## The Solution
 
+ZKlaim solves private settlement **and** controlled post-settlement disclosure. Circuits 0–3 answer "pay this valid claim without leaking PHI." Circuit 4 and [`passport_registry`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120) answer "prove something about my claim history to a third party without handing over my chart."
+
 ### Patient Experience
 
-From the patient's perspective, ZKlaim is three steps:
+From the patient's perspective, ZKlaim is four steps:
 
 1. **Doctor generates claim** — The treating physician enters ICD-10 code, visit date, and billed amount in the [provider portal](https://github.com/Marshal-AM/zklaim/blob/main/app/src/provider/NewClaimForm.tsx). See [create_claim.log](https://github.com/Marshal-AM/zklaim/blob/main/logs/create_claim.log). They sign an attestation with their Freighter wallet (registered in the physician ASP tree). An encrypted claim token is delivered to the patient (Supabase inbox, QR code, or deep link).
 
 2. **Patient submits claim** — The patient connects Freighter, decrypts the claim locally, and presses Submit in [SubmitClaimFlow.tsx](https://github.com/Marshal-AM/zklaim/blob/main/app/src/patient/SubmitClaimFlow.tsx#L140). See [submit_claim.log](https://github.com/Marshal-AM/zklaim/blob/main/logs/submit_claim.log). The browser generates four ZK proofs using Noir circuits compiled to WebAssembly and Barretenberg `bb.js` workers. Diagnosis, amount, and doctor identity **never leave the device**.
 
 3. **USDC settles** — A single Soroban transaction calls [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50). Demo tx: [`f4600e4a…246c61`](https://stellar.expert/explorer/testnet/tx/f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61). The on-chain record shows: one nullifier, accumulator update, one USDC transfer. No diagnosis. No amount in public inputs beyond the payout. The insurer knows their reserve decreased. That is all.
+
+4. **Health Passport (optional)** — After settlement, the patient can **Add to Passport** from [SubmitClaimFlow](https://github.com/Marshal-AM/zklaim/blob/main/app/src/patient/SubmitClaimFlow.tsx#L468). Later, on the [Passport → Share](https://github.com/Marshal-AM/zklaim/blob/main/app/src/patient/PatientPassportSharePage.tsx) screen, they select ICD categories to prove **absent** (e.g. mental health `C`, injury `S`) and issue a credential to a whitelisted verifier address. The verifier checks [`is_credential_valid`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120) — they never see individual claim lines.
 
 ### Cryptographic Guarantees
 
@@ -343,13 +390,14 @@ ZKlaim provides the following guarantees when all proofs verify and contracts ar
 5. **Fraud resistance** — Known billing patterns in the fraud ASP tree are rejected via sparse Merkle non-membership.
 6. **Private deductible progress** — Running accumulator state is commitment-only; threshold crossing is a boolean flag.
 7. **Atomic settlement** — All checks and USDC transfer occur in one transaction; partial verification is impossible.
+8. **Selective disclosure** — A patient can prove a **category non-membership** statement over their passport Merkle tree ([circuit 4](https://github.com/Marshal-AM/zklaim/blob/main/circuits/category_nonmembership/src/main.nr#L6)) without revealing which other categories *are* present or any per-visit ICD codes.
 
 ### What ZKlaim Does Not Do
 
 - Replace KYC/AML — it enhances compliance via ZK proofs rather than eliminating it
 - Require a fiat anchor — settlement is entirely in Circle testnet USDC on Soroban
 - Depend on off-chain proof verification — the UltraHonk verifier runs fully on-chain
-- Store medical data anywhere — not on blockchain, not on servers (Supabase holds encrypted tokens only), not on IPFS for PHI
+- Store medical **plaintext** anywhere — not on blockchain, not on servers (Supabase holds encrypted tokens only), not on IPFS for PHI. The passport stores **commitments and coarse buckets** only; full diagnosis stays in the patient's device until they choose what to prove.
 
 ### Why Stellar Is Load-Bearing
 
@@ -367,7 +415,7 @@ ZKlaim is not a project that happens to run on Stellar. It is a project that is 
 | CAP-0082 checked arithmetic | — | USDC amount calculations without silent overflow |
 | CAP-0078 TTL control | — | Nullifier and credential storage lifecycle |
 
-Without `bn254_multi_pairing_check`, on-chain UltraHonk verification is not feasible at any Soroban fee price point. Without Poseidon2 as a host function, Merkle verification in contracts would cost orders of magnitude more. Without cross-contract calls, the patient would need multiple transactions — breaking atomicity and leaking timing metadata.
+Without `bn254_multi_pairing_check`, on-chain UltraHonk verification is not feasible at any Soroban fee price point. Without Poseidon2 as a host function, Merkle verification in contracts would cost orders of magnitude more. Without cross-contract calls, the patient would need multiple transactions — breaking atomicity and leaking timing metadata. The same verifier contract also powers **circuit 4** passport credentials — selective disclosure stays on the same trust anchor as settlement proofs.
 
 ### Nullifiers and Double-Spend Prevention
 
@@ -400,7 +448,7 @@ ZKlaim spans four architectural layers, each with a strict responsibility bounda
 | **ZK circuits** | [circuits/](https://github.com/Marshal-AM/zklaim/blob/main/circuits/#L1) (Noir) | Define statements to prove; constrain witnesses |
 | **Crypto + trees** | [scripts/lib/](https://github.com/Marshal-AM/zklaim/blob/main/scripts/lib/merkle.ts#L1), [client/proof_gen/](https://github.com/Marshal-AM/zklaim/blob/main/client/proof_gen/index.ts#L144) | Poseidon2, Pedersen, Merkle builders, proof orchestration |
 | **On-chain contracts** | [contracts/](https://github.com/Marshal-AM/zklaim/blob/main/contracts/#L1) (Soroban Rust) | Verify proofs, enforce policy, settle USDC, track state |
-| **Application** | [app/](https://github.com/Marshal-AM/zklaim/blob/main/app/src/patient/SubmitClaimFlow.tsx#L140) (React + Vite) | Patient, provider, admin, verifier portals; Freighter signing |
+| **Application** | [app/](https://github.com/Marshal-AM/zklaim/blob/main/app/src/patient/SubmitClaimFlow.tsx#L140) (React + Vite) | Patient, provider, admin, verifier portals; Freighter signing; **Health Passport** append + share ([`PatientPassportSharePage`](https://github.com/Marshal-AM/zklaim/blob/main/app/src/patient/PatientPassportSharePage.tsx)) |
 
 Data flows **down** at claim time (encrypted claim → local prove → Soroban submit) and **sideways** at setup time (tree artifacts, VK initialization, policy registration).
 
@@ -437,6 +485,25 @@ sequenceDiagram
   Tracker->>Verifier: verify circuit 3
   Escrow->>USDC: transfer patient payout
   Escrow-->>Patient: claim event + USDC balance
+```
+
+**Post-settlement (Health Passport):** After `claim_escrow` emits `passport/leaf_rdy`, the patient may optionally call [`passport_registry.append_leaf`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L75) (requires the nullifier to be spent). Later, a separate transaction calls [`verify_credential`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120) with a circuit-4 proof — this is **not** part of `submit_claim` and does not touch USDC escrow.
+
+```mermaid
+sequenceDiagram
+  participant Patient as Patient Browser
+  participant Escrow as claim_escrow
+  participant Passport as passport_registry
+  participant Verifier as ultrahonk_verifier
+  participant Third as Whitelisted Verifier
+
+  Escrow-->>Patient: passport/leaf_rdy event
+  Patient->>Passport: append_leaf(nullifier, leaf_commitment)
+  Patient->>Patient: prove category_nonmembership (circuit 4)
+  Patient->>Passport: verify_credential(proof, excluded_category)
+  Passport->>Verifier: verify circuit 4
+  Passport-->>Patient: credential_id + TTL
+  Third->>Passport: is_credential_valid(credential_id)
 ```
 
 ### Proof Generation Pipeline
@@ -523,6 +590,8 @@ ZKlaim uses **four distinct Merkle constructions**, each tuned to its access pat
 | Fraud blacklist | 16 (sparse) | 65,536 slots | `Poseidon2([pattern, Poseidon2([0x01×32])])` | Prove billing pattern NOT in fraud set |
 | Health passport | 8 | 256 claims/patient | `Poseidon2([nullifier, secret, category, amount_bkt, month], 5)` | Selective disclosure credentials |
 
+The **passport tree** is the only Merkle structure owned per-patient (not per-insurer). It grows only when the patient opts in after settlement. Circuit 4 walks every **active** leaf and proves each category differs from the excluded letter — so a verifier learns *"no mental-health bucket claims"* without learning whether the patient had respiratory (`J`) or injury (`S`) visits. The nullifier in each leaf ties the passport entry to a real settled claim without revealing which claim on the escrow contract.
+
 **Dense trees (depth 10):** Index bit `i` at level `i` selects left/right sibling. Unfilled slots pad with `ZERO_FIELD`. Implementations aligned across [scripts/lib/merkle.ts](https://github.com/Marshal-AM/zklaim/blob/main/scripts/lib/merkle.ts#L1), [circuits/common/src/lib.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/common/src/lib.nr#L1), and [contracts/common/src/merkle.rs](https://github.com/Marshal-AM/zklaim/blob/main/contracts/common/src/merkle.rs#L26).
 
 **Sparse tree (depth 16):** Key → index via last 4 bytes BE of 32-byte pattern hash, masked to `2^16 - 1`. Empty subtrees use precomputed default nodes. Non-membership proofs walk from empty leaf without revealing which patterns exist in the tree.
@@ -593,13 +662,15 @@ ICD codes map to field elements via `icdToField()` in the client ([lib/poseidon2
 
 ### Circuit Registry
 
-| Circuit | ID | Proof bytes | Noir source | Used in |
-|---------|---:|------------:|-------------|---------|
-| `policy_validity` | 0 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/policy_validity/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
-| `amount_range` | 1 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/amount_range/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
-| `doctor_attestation` | 2 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/doctor_attestation/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
-| `deductible_accumulator` | 3 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/deductible_accumulator/src/main.nr#L1) | [`deductible_tracker.update_accumulator`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/deductible_tracker/src/lib.rs#L53) |
-| `category_nonmembership` | 4 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/category_nonmembership/src/main.nr#L6) | [`passport_registry.verify_credential`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120) |
+| Circuit | ID | Noir source | Used in |
+|---------|---:|-------------|---------|
+| `policy_validity` | 0 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/policy_validity/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
+| `amount_range` | 1 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/amount_range/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
+| `doctor_attestation` | 2 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/doctor_attestation/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
+| `deductible_accumulator` | 3 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/deductible_accumulator/src/main.nr#L1) | [`deductible_tracker.update_accumulator`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/deductible_tracker/src/lib.rs#L53) |
+| `category_nonmembership` | 4 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/category_nonmembership/src/main.nr#L6) | [`passport_registry.verify_credential`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120) — **Health Passport** selective disclosure |
+
+Circuits 0–3 share `claim_hash` and settle USDC; **circuit 4 is independent** — it proves statements over the patient's passport tree and is invoked only when sharing a credential ([`passportCredential.ts`](https://github.com/Marshal-AM/zklaim/blob/main/app/src/lib/passportCredential.ts)).
 
 Fraud ASP non-membership is **not** a ZK proof — it is verified via plain sparse Merkle path checking in [`asp_nonmembership.verify_non_membership`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/asp_nonmembership/src/lib.rs#L83).
 
@@ -784,6 +855,10 @@ Supports up to **32 active leaves** in-circuit; on-chain passport tree supports 
 #### On-chain binding
 
 `passport_registry.verify_credential` verifies circuit 4, checks verifier is admin-registered, and issues a time-limited `CredentialRecord`.
+
+**Why selective disclosure matters:** Traditional portals export every line item. ZKlaim's circuit proves a **universal quantifier** over the patient's committed history: ∀ active leaves, category ≠ excluded. The verifier never receives leaf indices, nullifiers, or sibling paths — only the public `passport_root`, `excluded_category`, and `claim_count` plus a valid credential ID after verification.
+
+**Example:** A patient with pneumonia (`J`), annual physical (`Z`), and dermatology (`L`) visits appends three coarse leaves. An employer asks for a wellness attestation excluding behavioral health (`C`). The proof succeeds because no leaf carries category `C`; the employer does **not** learn about the pneumonia or other visits.
 
 ---
 
@@ -1129,6 +1204,14 @@ leaf = Poseidon2([settled_nullifier, leaf_secret, icd_letter, amount_bucket, vis
 4. Patient calls `verify_credential` with registered verifier address
 5. Third party calls `is_credential_valid(credential_id)` within TTL
 
+**Selective disclosure in practice:**
+
+- **What verifiers learn:** A boolean attestation bound to `passport_root` at issuance time — e.g. "category C not present in N active leaves" — plus credential expiry.
+- **What verifiers do not learn:** Full ICD codes, exact amounts, physician identities, or which *other* categories are present.
+- **What patients control:** Whether to append a leaf at all; which categories to exclude in each credential; which whitelisted verifier receives it; credential TTL.
+
+Client proving for credentials reuses the same [`proof_gen`](https://github.com/Marshal-AM/zklaim/blob/main/client/proof_gen/index.ts#L144) worker stack as settlement proofs; witness assembly is in [`passportCredential.ts`](https://github.com/Marshal-AM/zklaim/blob/main/app/src/lib/passportCredential.ts).
+
 ---
 
 ### ClaimPackage Wire Format
@@ -1173,6 +1256,8 @@ ZKlaim is the first **Stellar-native private insurance settlement system** that 
 
 The patient presses Submit. The chain sees a nullifier, commitments, roots, a boolean flag, and a USDC transfer. It does not see a diagnosis.
 
+After payout, the same patient can build a **Health Passport** — optional coarse claim leaves and **selective disclosure credentials** that answer third-party questions ("no category X in my history") without reopening the private settlement proofs or exporting medical records.
+
 ### What the Chain Sees — and Cannot See
 
 | Visible on Stellar Expert | Invisible forever |
@@ -1183,6 +1268,7 @@ The patient presses Submit. The chain sees a nullifier, commitments, roots, a bo
 | `deductible_met` boolean | Prior claim amounts |
 | USDC payout (coinsurance-adjusted) | Individual passport leaf secrets |
 | `billing_pattern_hash` (coarse bucket) | Patient medical history plaintext |
+| Passport credential ID + excluded category statement | Which other categories *are* present; per-visit ICD codes |
 
 The hackathon **demo reveal moment**: open the settlement transaction on [Stellar Expert](https://stellar.expert/explorer/testnet/tx/f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61) ([`submit_claim.log`](https://github.com/Marshal-AM/zklaim/blob/main/logs/submit_claim.log) lines 897–944). Inspect Soroban events. One nullifier. One accumulator update. One USDC transfer. Zero medical data. Zero diagnosis. The ICD code **J18.9** (pneumonia) never appears — yet the insurer paid a valid claim under a real policy with a licensed physician's attestation.
 
@@ -1192,7 +1278,7 @@ The hackathon **demo reveal moment**: open the settlement transaction on [Stella
 2. **Recursive deductible accumulator** — private running state with threshold-gated payout logic
 3. **ASP repurposing for professional licensing** — physician membership without identity disclosure
 4. **Fraud ASP without surveillance** — sparse Merkle non-membership on coarse billing fingerprints
-5. **Health Passport credentials** — selective category non-membership proofs for third-party verification
+5. **Health Passport credentials** — post-settlement selective disclosure via per-patient Merkle trees and circuit-4 category non-membership proofs; separates settlement privacy from downstream attestation
 
 ### Future Directions
 
@@ -1201,3 +1287,4 @@ The hackathon **demo reveal moment**: open the settlement transaction on [Stella
 - Insurer view-key selective disclosure for regulatory reconstruction
 - Multi-insurer policy routing and cross-plan accumulator semantics
 - Credential marketplace with verifier staking and TTL policies
+- Positive membership credentials (prove category *presence* without full record) and multi-category exclusion sets
