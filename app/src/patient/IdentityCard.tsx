@@ -85,11 +85,12 @@ export function IdentityStatusOverview() {
 
 export function IdentityShareCard() {
   const identity = usePatientStore((s) => s.identity);
+  const activeWalletAddress = usePatientStore((s) => s.activeWalletAddress);
   const walletAddress = useWalletStore((s) => s.address);
 
   if (!identity) return null;
 
-  const stellar = walletAddress ?? identity.stellar_address ?? null;
+  const stellar = activeWalletAddress ?? walletAddress ?? identity.stellar_address ?? null;
   const directoryMode = env.isSupabaseEnabled();
 
   return (

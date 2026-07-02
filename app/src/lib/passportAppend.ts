@@ -99,7 +99,7 @@ export async function appendSettlementToPassport(
     merkle_path: pathHex,
   };
 
-  await appendLocalLeaf(record, rootHex);
+  await appendLocalLeaf(input.patientAddress, record, rootHex);
   return record;
 }
 

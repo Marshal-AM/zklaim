@@ -5,7 +5,7 @@ import { env } from "../config/env";
 import { freighterSignMessage } from "../lib/freighter";
 import { randomFieldHex } from "../lib/hydrateClaim";
 import { registerPatientProfile } from "../lib/patientProfile";
-import { savePatientIdentity } from "../lib/persistence";
+import { loadPatientIdentity, savePatientIdentity } from "../lib/persistence";
 import { usePatientStore, type PatientIdentity } from "../store/patientStore";
 import { useWalletStore } from "../store/wallet";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -35,6 +35,15 @@ export function OnboardingPanel() {
       log.info("Connecting Freighter wallet…");
       const address = await ensureWalletConnected();
       log.success("Wallet connected", { address });
+
+      const existing = await loadPatientIdentity(address);
+      if (existing) {
+        setIdentity(existing);
+        log.success("Loaded existing identity for this wallet", { address });
+        toast.success("Identity already set up for this wallet.");
+        return;
+      }
+
       log.info("Generating NaCl box keypair for claim decryption…");
       const box = generateBoxKeypair();
       log.success("Box keypair generated", {
@@ -50,7 +59,7 @@ export function OnboardingPanel() {
         policy_id: "DEMO-POLICY-001",
         stellar_address: address,
       };
-      await savePatientIdentity(identity);
+      await savePatientIdentity(identity, address);
       setIdentity(identity);
       log.success("Identity saved to OPFS", {
         policy_id: identity.policy_id,

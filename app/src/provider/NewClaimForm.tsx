@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { computeClaimHash, fieldFromHex } from "@zklaim/scripts";
 import { ensureWalletConnected } from "../lib/walletSession";
 import { useProviderEnrollment } from "../components/ProviderRegistration";
-import { QrDisplay } from "../components/QrDisplay";
 import { ActivityLogPanel } from "../components/ActivityLogPanel";
 import { DetailList, DetailRow } from "../components/ui/DetailList";
 import { FormField } from "../components/ui/FormField";
@@ -74,6 +73,7 @@ export function NewClaimForm() {
     insurerViewAttached: boolean;
     token: EncryptedClaimToken;
   } | null>(null);
+  const [deepLinkCopied, setDeepLinkCopied] = useState(false);
   const [logEntries, setLogEntries] = useState<ActivityLogEntry[]>([]);
 
   const appendLog = useCallback((entry: ActivityLogEntry) => {
@@ -287,8 +287,8 @@ export function NewClaimForm() {
         delivered_to_inbox: supabaseDelivered,
       };
       addHistory(entry);
-      const hist = await loadProviderHistory();
-      await saveProviderHistory([entry, ...hist]);
+      const hist = await loadProviderHistory(doctorAddress);
+      await saveProviderHistory(doctorAddress, [entry, ...hist]);
       log.success("Provider local history updated");
     } catch (err) {
       log.error("Create claim failed", err);
@@ -302,10 +302,41 @@ export function NewClaimForm() {
     return (
       <StepFormLayout fitParent className="space-y-4">
         <h3 className="text-lg font-[650] tracking-tight">Claim sent to patient</h3>
-        <QrDisplay
-          value={delivery.deepLink}
-          label="Patient can also open this link"
-        />
+        {delivery.supabaseDelivered ? (
+          <p className="text-sm text-muted-foreground">
+            Delivered to the patient inbox. You can also share this deep link as a
+            backup.
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Copy the deep link below and send it to your patient so they can import
+            the claim.
+          </p>
+        )}
+        <div
+          className="surface-row min-w-0 px-3 py-2"
+          title={delivery.deepLink}
+        >
+          <p className="truncate text-safe-mono text-xs text-muted-foreground">
+            {delivery.deepLink}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn-primary w-full py-2.5 text-sm"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(delivery.deepLink);
+              setDeepLinkCopied(true);
+              toast.success("Deep link copied");
+              setTimeout(() => setDeepLinkCopied(false), 2000);
+            } catch {
+              toast.error("Could not copy to clipboard");
+            }
+          }}
+        >
+          {deepLinkCopied ? "Copied!" : "Copy deep link"}
+        </button>
         <p className="text-safe-mono text-xs text-subtle">
           Content address: {delivery.cid}
         </p>

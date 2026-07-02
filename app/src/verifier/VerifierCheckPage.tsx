@@ -24,6 +24,8 @@ import {
   passportRegistryId,
 } from "../lib/passportContract";
 import { toast } from "../lib/toast";
+import { useWalletStore } from "../store/wallet";
+import { patientWalletId } from "../lib/patientWalletScope";
 
 function explorerTxUrl(hash: string): string {
   return `https://stellar.expert/explorer/testnet/tx/${hash}`;
@@ -176,6 +178,8 @@ function CredentialDetailPanel({
 }
 
 export function VerifierCheckPage() {
+  const walletAddress = useWalletStore((s) => s.address);
+  const credentialWalletId = patientWalletId(walletAddress);
   const [searchParams, setSearchParams] = useSearchParams();
   const [credentialIdInput, setCredentialIdInput] = useState(
     () => searchParams.get("id") ?? "",
@@ -186,8 +190,12 @@ export function VerifierCheckPage() {
   const [sessions, setSessions] = useState<StoredCredentialSession[]>([]);
 
   const refreshSessions = useCallback(() => {
-    setSessions(listCredentialSessions());
-  }, []);
+    if (!credentialWalletId) {
+      setSessions([]);
+      return;
+    }
+    setSessions(listCredentialSessions(credentialWalletId));
+  }, [credentialWalletId]);
 
   useEffect(() => {
     refreshSessions();
@@ -195,8 +203,8 @@ export function VerifierCheckPage() {
 
   const sessionForActive = useMemo(() => {
     if (activeId === null) return null;
-    return findCredentialById(activeId)?.session ?? null;
-  }, [activeId]);
+    return findCredentialById(activeId, credentialWalletId)?.session ?? null;
+  }, [activeId, credentialWalletId]);
 
   async function checkCredential(id: number) {
     if (!isPassportConfigured()) {
@@ -259,7 +267,9 @@ export function VerifierCheckPage() {
     );
   }
 
-  const latest = latestCredentialSession();
+  const latest = credentialWalletId
+    ? latestCredentialSession(credentialWalletId)
+    : null;
 
   return (
     <PageContent>
@@ -342,7 +352,7 @@ export function VerifierCheckPage() {
             <Link to="/patient/passport/share" className="text-primary hover:underline">
               Passport → Share
             </Link>
-            . Metadata is saved locally in this browser for richer display.
+            . Metadata is saved per patient wallet in this browser.
           </p>
         </SectionCard>
 

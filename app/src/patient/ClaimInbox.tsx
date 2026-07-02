@@ -85,9 +85,11 @@ export function ClaimInbox({
         return false;
       }
 
+      if (!patientAddress) return false;
+
       const next = [...currentInbox, result.entry];
       addInboxClaim(result.entry);
-      await savePatientInbox(next);
+      await savePatientInbox(patientAddress, next);
       onSelectClaim(result.entry.id);
       log.success("Claim imported to inbox", {
         claimId: result.entry.id,
@@ -102,7 +104,7 @@ export function ClaimInbox({
 
       return true;
     },
-    [identity, addInboxClaim, onSelectClaim, log],
+    [identity, patientAddress, addInboxClaim, onSelectClaim, log],
   );
 
   const syncSupabaseDeliveries = useCallback(async () => {
@@ -219,8 +221,8 @@ export function ClaimInbox({
       {inboxClaims.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {env.isSupabaseEnabled()
-            ? "No pending claims. Claims appear automatically when your doctor sends them, or via QR/deep link."
-            : "No pending claims. Ask your doctor to send a claim token via QR or deep link."}
+            ? "No pending claims. Claims appear automatically when your doctor sends them, or via deep link."
+            : "No pending claims. Ask your doctor to send a claim deep link."}
         </p>
       ) : (
         <ul className="space-y-2">

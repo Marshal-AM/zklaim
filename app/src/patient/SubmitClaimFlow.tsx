@@ -7,9 +7,11 @@ import {
 } from "@zklaim/proof-gen";
 import { fieldToHex } from "@zklaim/scripts";
 import { ensureWalletConnected } from "../lib/walletSession";
+import { tryNormalizeStellarAddress } from "../lib/stellarAddress";
 import { ProofProgress } from "../components/ProofProgress";
 import { toast } from "../lib/toast";
 import { SubmitClaimLogPanel } from "../components/SubmitClaimLogPanel";
+import { SubmitClaimSummaryModal } from "../components/SubmitClaimSummaryModal";
 import type { SorobanDebugSink } from "@zklaim/proof-gen/stellar/sorobanDebug";
 import {
   signSorobanClaimTransaction,
@@ -74,7 +76,12 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
 
   const [stage, setStage] = useState<ProofProgressStage | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [completedAt, setCompletedAt] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [runFinished, setRunFinished] = useState(false);
+  const [runOutcome, setRunOutcome] = useState<"success" | "error" | null>(null);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [showSettlement, setShowSettlement] = useState(false);
   const [logEntries, setLogEntries] = useState<ActivityLogEntry[]>([]);
   const [receipt, setReceipt] = useState<{
     nullifier: string;
@@ -96,11 +103,39 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
   );
 
   const claimSummary = summarizeInboxClaim(claim, identity.box_secret_key);
+  const hasStarted = startedAt !== null;
+
+  function resetRunState() {
+    setStage(null);
+    setStartedAt(null);
+    setCompletedAt(null);
+    setRunFinished(false);
+    setRunOutcome(null);
+    setShowSummaryModal(false);
+    setShowSettlement(false);
+    setReceipt(null);
+    setPassportAdded(false);
+  }
+
+  function handleSummaryConfirm() {
+    setShowSummaryModal(false);
+    if (runOutcome === "success") {
+      setShowSettlement(true);
+    }
+  }
 
   async function handleSubmit() {
     setBusy(true);
     setLogEntries([]);
     log.clear();
+    setRunFinished(false);
+    setRunOutcome(null);
+    setShowSummaryModal(false);
+    setShowSettlement(false);
+    setReceipt(null);
+    setPassportAdded(false);
+    setCompletedAt(null);
+    setStage(null);
     setStartedAt(Date.now());
     updateInboxClaim(claim.id, { status: "pending" });
 
@@ -124,6 +159,13 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
     try {
       log.info("Connecting Freighter wallet…");
       const address = await ensureWalletConnected();
+      const activeWallet = usePatientStore.getState().activeWalletAddress;
+      const normalized = tryNormalizeStellarAddress(address);
+      if (activeWallet && normalized && activeWallet !== normalized) {
+        throw new Error(
+          "Connected wallet changed — wait a moment for your session to reload, then try again.",
+        );
+      }
       log.success("Wallet connected", { address });
 
       log.info("Fetching USDC balance (before)…");
@@ -301,7 +343,7 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
       };
       usePatientStore.getState().setIdentity(updatedIdentity);
       updateAccumulator(updatedIdentity.accumulator_met_cents);
-      await savePatientIdentity(updatedIdentity);
+      await savePatientIdentity(updatedIdentity, address);
       log.success("Deductible accumulator updated", {
         previous_met_cents: identity.accumulator_met_cents,
         new_met_cents: updatedIdentity.accumulator_met_cents,
@@ -311,7 +353,7 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         c.id === claim.id ? { ...c, status: "submitted" as const } : c,
       );
       updateInboxClaim(claim.id, { status: "submitted" });
-      await savePatientInbox(nextInbox);
+      await savePatientInbox(address, nextInbox);
       log.success("Inbox claim marked submitted", { claimId: claim.id });
 
       const histEntry = {
@@ -321,7 +363,7 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         claimId: claim.id,
       };
       addHistory(histEntry);
-      await savePatientHistory([histEntry, ...history]);
+      await savePatientHistory(address, [histEntry, ...history]);
       log.success("Claim history saved", histEntry);
 
       if (claim.deliveryId) {
@@ -345,6 +387,10 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
         payload,
       });
       log.success("Submit claim completed successfully");
+      setRunFinished(true);
+      setRunOutcome("success");
+      setCompletedAt(Date.now());
+      setShowSummaryModal(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Submit failed";
       log.error("Submit claim failed", err);
@@ -393,6 +439,10 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
       }
       updateInboxClaim(claim.id, { status: "failed" });
       log.warn("Inbox claim marked failed", { claimId: claim.id });
+      setRunFinished(true);
+      setRunOutcome("error");
+      setCompletedAt(Date.now());
+      setShowSummaryModal(true);
     } finally {
       setBusy(false);
     }
@@ -417,7 +467,7 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
     }
   }
 
-  if (receipt) {
+  if (showSettlement && receipt) {
     return (
       <div className="space-y-4">
         <div className="success-card space-y-3 p-6">
@@ -478,7 +528,13 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
     );
   }
 
-  if (claim.status === "submitted" && !receipt && !busy) {
+  if (
+    claim.status === "submitted" &&
+    !receipt &&
+    !busy &&
+    !hasStarted &&
+    !showSettlement
+  ) {
     return (
       <div className="space-y-4">
         <div className="success-card space-y-3 p-6">
@@ -504,35 +560,66 @@ export function SubmitClaimFlow({ claim, onComplete }: SubmitClaimFlowProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="surface-row px-4 py-3">
-        <p className="section-label">Selected claim</p>
-        <p className="mt-1 font-[650] text-foreground">
-          {claimSummary
-            ? `${claimSummary.amount_label} · ${claimSummary.icd_code} · ${claimSummary.doctor_license_id}`
-            : "Encrypted claim"}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {claimSummary
-            ? `Visit ${formatVisitDate(claimSummary.visit_date)} · `
-            : ""}
-          {claim.status === "failed" ? "Retry · " : ""}
-          ID {shortClaimId(claim.id)}
-        </p>
+    <>
+      <SubmitClaimSummaryModal
+        open={showSummaryModal}
+        outcome={runOutcome ?? "error"}
+        entries={logEntries}
+        usdcReceived={receipt?.usdcReceived}
+        onConfirm={handleSummaryConfirm}
+      />
+
+      <div className="space-y-4">
+        <div className="surface-row px-4 py-3">
+          <p className="section-label">Selected claim</p>
+          <p className="mt-1 font-[650] text-foreground">
+            {claimSummary
+              ? `${claimSummary.amount_label} · ${claimSummary.icd_code} · ${claimSummary.doctor_license_id}`
+              : "Encrypted claim"}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {claimSummary
+              ? `Visit ${formatVisitDate(claimSummary.visit_date)} · `
+              : ""}
+            {claim.status === "failed" ? "Retry · " : ""}
+            ID {shortClaimId(claim.id)}
+          </p>
+        </div>
+
+        {!busy && !hasStarted && (
+          <button
+            type="button"
+            onClick={() => void handleSubmit()}
+            className="btn-primary w-full py-3 text-base"
+          >
+            Submit Claim
+          </button>
+        )}
+
+        {hasStarted && !showSettlement && (
+          <ProofProgress
+            currentStage={stage}
+            startedAt={startedAt}
+            completed={runFinished}
+            completedAt={completedAt}
+          />
+        )}
+
+        {runFinished && runOutcome === "error" && !showSummaryModal && (
+          <button
+            type="button"
+            onClick={() => {
+              resetRunState();
+              void handleSubmit();
+            }}
+            className="btn-primary w-full py-3 text-base"
+          >
+            Retry submission
+          </button>
+        )}
+
+        <SubmitClaimLogPanel entries={logEntries} autoScroll={!runFinished} />
       </div>
-      {!busy && !stage && (
-        <button
-          type="button"
-          onClick={handleSubmit}
-          className="btn-primary w-full py-3 text-base"
-        >
-          Submit Claim
-        </button>
-      )}
-      {(busy || stage) && (
-        <ProofProgress currentStage={stage} startedAt={startedAt} />
-      )}
-      <SubmitClaimLogPanel entries={logEntries} />
-    </div>
+    </>
   );
 }

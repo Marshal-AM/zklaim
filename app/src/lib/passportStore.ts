@@ -1,48 +1,78 @@
 import { opfsReadJson, opfsWriteJson } from "./opfs";
+import {
+  PATIENT_OPFS_BASENAMES,
+  patientScopedOpfsKey,
+  patientWalletId,
+  requirePatientWalletId,
+} from "./patientWalletScope";
 import type { LocalLeafRecord, PassportLocalStore } from "./passport";
 
-const PASSPORT_KEY = "passport_store.json";
 const STORE_VERSION = 1;
 
-export async function loadPassportStore(): Promise<PassportLocalStore | null> {
-  return opfsReadJson<PassportLocalStore>(PASSPORT_KEY);
+export async function loadPassportStore(
+  walletAddress: string,
+): Promise<PassportLocalStore | null> {
+  const walletId = patientWalletId(walletAddress);
+  if (!walletId) return null;
+  const store = await opfsReadJson<PassportLocalStore>(
+    patientScopedOpfsKey(walletId, PATIENT_OPFS_BASENAMES.passport),
+  );
+  if (!store) return null;
+  if (store.patient_pubkey !== walletId) {
+    return { ...store, patient_pubkey: walletId };
+  }
+  return store;
 }
 
-export async function savePassportStore(store: PassportLocalStore): Promise<void> {
-  await opfsWriteJson(PASSPORT_KEY, store);
+export async function savePassportStore(
+  walletAddress: string,
+  store: PassportLocalStore,
+): Promise<void> {
+  const walletId = requirePatientWalletId(walletAddress);
+  const next: PassportLocalStore = {
+    ...store,
+    patient_pubkey: walletId,
+  };
+  await opfsWriteJson(
+    patientScopedOpfsKey(walletId, PATIENT_OPFS_BASENAMES.passport),
+    next,
+  );
 }
 
 export function createEmptyPassportStore(patientPubkey: string): PassportLocalStore {
+  const walletId = requirePatientWalletId(patientPubkey);
   return {
     version: STORE_VERSION,
-    patient_pubkey: patientPubkey,
+    patient_pubkey: walletId,
     leaves: [],
   };
 }
 
 export async function ensurePassportStore(
-  patientPubkey: string,
+  walletAddress: string,
 ): Promise<PassportLocalStore> {
-  const existing = await loadPassportStore();
+  const walletId = requirePatientWalletId(walletAddress);
+  const existing = await loadPassportStore(walletId);
   if (existing) return existing;
-  const created = createEmptyPassportStore(patientPubkey);
-  await savePassportStore(created);
+  const created = createEmptyPassportStore(walletId);
+  await savePassportStore(walletId, created);
   return created;
 }
 
 export async function appendLocalLeaf(
+  walletAddress: string,
   record: LocalLeafRecord,
   onChainRoot?: string,
 ): Promise<PassportLocalStore> {
+  const walletId = requirePatientWalletId(walletAddress);
   const store =
-    (await loadPassportStore()) ??
-    createEmptyPassportStore(record.nullifier.slice(0, 8));
+    (await loadPassportStore(walletId)) ?? createEmptyPassportStore(walletId);
   const next: PassportLocalStore = {
     ...store,
     leaves: [...store.leaves, record],
     on_chain_root: onChainRoot ?? store.on_chain_root,
   };
-  await savePassportStore(next);
+  await savePassportStore(walletId, next);
   return next;
 }
 

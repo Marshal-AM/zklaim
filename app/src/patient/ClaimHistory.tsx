@@ -7,6 +7,7 @@ import {
   findLeafByNullifier,
   loadPassportStore,
 } from "../lib/passportStore";
+import { requireActivePatientWallet } from "../lib/patientSession";
 import { isPassportConfigured } from "../lib/passportContract";
 import { ensureWalletConnected } from "../lib/walletSession";
 import { toast } from "../lib/toast";
@@ -26,7 +27,8 @@ function HistoryPassportAction({ entry }: { entry: ClaimHistoryEntry }) {
     if (!identity || !entry.txHash) return;
     setBusy(true);
     try {
-      const store = await loadPassportStore();
+      const wallet = requireActivePatientWallet();
+      const store = await loadPassportStore(wallet);
       if (store && findLeafByNullifier(store, entry.nullifier)) {
         setDone(true);
         toast.success("Already in your Health Passport");

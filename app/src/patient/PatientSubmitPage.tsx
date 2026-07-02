@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { SubmitClaimFlow } from "./SubmitClaimFlow";
 import { usePatientStore } from "../store/patientStore";
+import { useWalletStore } from "../store/wallet";
 import {
   formatVisitDate,
   shortClaimId,
@@ -12,23 +13,40 @@ export function PatientSubmitPage() {
   const navigate = useNavigate();
   const { claimId } = useParams<{ claimId?: string }>();
   const identity = usePatientStore((s) => s.identity);
+  const activeWalletAddress = usePatientStore((s) => s.activeWalletAddress);
+  const walletAddress = useWalletStore((s) => s.address);
   const inbox = usePatientStore((s) => s.inbox);
 
   const submittable = inbox.filter(
     (c) => c.status === "pending" || c.status === "failed",
   );
 
-  if (!identity) {
+  const selectedClaim =
+    (claimId ? inbox.find((c) => c.id === claimId) : null) ??
+    (submittable.length === 1 ? submittable[0] : null);
+
+  if (!walletAddress) {
     return (
-      <SectionCard label="Setup required" title="Complete identity setup first">
+      <SectionCard label="Wallet" title="Connect your patient wallet">
         <p className="text-sm text-muted-foreground">
-          Set up your identity before you can generate proofs and submit claims.
+          Connect Freighter to submit claims for this account.
         </p>
       </SectionCard>
     );
   }
 
-  if (submittable.length === 0) {
+  if (!identity || !activeWalletAddress) {
+    return (
+      <SectionCard label="Setup required" title="Complete identity setup first">
+        <p className="text-sm text-muted-foreground">
+          Set up your identity for this wallet before you can generate proofs and
+          submit claims.
+        </p>
+      </SectionCard>
+    );
+  }
+
+  if (!selectedClaim && submittable.length === 0) {
     return (
       <SectionCard label="Nothing to submit" title="No pending claims">
         <p className="text-sm text-muted-foreground">
@@ -41,10 +59,6 @@ export function PatientSubmitPage() {
       </SectionCard>
     );
   }
-
-  const selectedClaim =
-    (claimId ? inbox.find((c) => c.id === claimId) : null) ??
-    (submittable.length === 1 ? submittable[0] : null);
 
   return (
     <div className="space-y-6">

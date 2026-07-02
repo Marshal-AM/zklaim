@@ -4,6 +4,7 @@ import { loadPassportStore } from "../lib/passportStore";
 import { formatAmountBucketLabel } from "../lib/passport";
 import { ICD_CATEGORY_NAMES } from "../lib/passportCategories";
 import type { PassportLocalStore } from "../lib/passport";
+import { usePatientStore } from "../store/patientStore";
 
 function monthLabel(visitMonth: number): string {
   const year = Math.floor(visitMonth / 12);
@@ -16,13 +17,29 @@ function monthLabel(visitMonth: number): string {
 }
 
 export function PatientPassportHistoryPage() {
+  const activeWalletAddress = usePatientStore((s) => s.activeWalletAddress);
+  const identity = usePatientStore((s) => s.identity);
   const [store, setStore] = useState<PassportLocalStore | null>(null);
 
   useEffect(() => {
-    void loadPassportStore().then(setStore);
-  }, []);
+    if (!activeWalletAddress || !identity) {
+      setStore(null);
+      return;
+    }
+    void loadPassportStore(activeWalletAddress).then(setStore);
+  }, [activeWalletAddress, identity]);
 
   const leaves = [...(store?.leaves ?? [])].reverse();
+
+  if (!activeWalletAddress) {
+    return (
+      <SectionCard label="Wallet" title="Connect your patient wallet">
+        <p className="text-sm text-muted-foreground">
+          Connect Freighter to view passport history for this account.
+        </p>
+      </SectionCard>
+    );
+  }
 
   return (
     <SectionCard
@@ -30,8 +47,8 @@ export function PatientPassportHistoryPage() {
       title="My claim history (visible only to you)"
     >
       <p className="mb-4 text-sm text-muted-foreground">
-        This history exists only on this device. Amounts are bucketed ranges; exact
-        diagnosis codes are not stored in the passport.
+        This history is stored per wallet on this device. Amounts are bucketed
+        ranges; exact diagnosis codes are not stored in the passport.
       </p>
       {leaves.length === 0 ? (
         <p className="text-sm text-muted-foreground">No passport claims yet.</p>

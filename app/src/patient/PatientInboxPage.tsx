@@ -9,22 +9,33 @@ import { SectionCard } from "../components/ui/SectionCard";
 export function PatientInboxPage() {
   const navigate = useNavigate();
   const identity = usePatientStore((s) => s.identity);
+  const activeWalletAddress = usePatientStore((s) => s.activeWalletAddress);
   const walletAddress = useWalletStore((s) => s.address);
 
   const patientAddress = useMemo(
     () =>
+      tryNormalizeStellarAddress(activeWalletAddress) ??
       tryNormalizeStellarAddress(walletAddress) ??
-      tryNormalizeStellarAddress(identity?.stellar_address) ??
       null,
-    [walletAddress, identity?.stellar_address],
+    [activeWalletAddress, walletAddress],
   );
+
+  if (!walletAddress) {
+    return (
+      <SectionCard label="Wallet" title="Connect your patient wallet">
+        <p className="text-sm text-muted-foreground">
+          Connect Freighter to receive and decrypt claims for this account.
+        </p>
+      </SectionCard>
+    );
+  }
 
   if (!identity) {
     return (
       <SectionCard label="Setup required" title="Complete identity setup first">
         <p className="text-sm text-muted-foreground">
-          Go to the Identity tab to connect Freighter and generate your encryption
-          keys before claims can be received.
+          Set up your identity for this wallet on the Identity tab before claims
+          can be received.
         </p>
       </SectionCard>
     );

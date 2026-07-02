@@ -6,6 +6,7 @@ interface ActivityLogPanelProps {
   title?: string;
   emptyMessage?: string;
   className?: string;
+  autoScroll?: boolean;
 }
 
 const LEVEL_STYLES: Record<ActivityLogEntry["level"], string> = {
@@ -29,12 +30,14 @@ export function ActivityLogPanel({
   title = "Activity log",
   emptyMessage,
   className = "",
+  autoScroll = true,
 }: ActivityLogPanelProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!autoScroll) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [entries.length]);
+  }, [entries.length, autoScroll]);
 
   if (entries.length === 0) {
     if (!emptyMessage) return null;

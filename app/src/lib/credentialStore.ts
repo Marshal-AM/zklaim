@@ -1,4 +1,9 @@
-const STORAGE_KEY = "zklaim_passport_credentials_v1";
+import {
+  credentialStorageKey,
+  LEGACY_CREDENTIAL_STORAGE_KEY,
+  patientWalletId,
+  requirePatientWalletId,
+} from "./patientWalletScope";
 
 export interface StoredCredentialProof {
   credentialId: number;
@@ -19,9 +24,9 @@ export interface StoredCredentialSession {
   createdAt: string;
 }
 
-function readAll(): StoredCredentialSession[] {
+function readRawSessions(storageKey: string): StoredCredentialSession[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (!raw) return [];
     return JSON.parse(raw) as StoredCredentialSession[];
   } catch {
@@ -29,37 +34,113 @@ function readAll(): StoredCredentialSession[] {
   }
 }
 
-function writeAll(sessions: StoredCredentialSession[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+function allCredentialStorageKeys(): string[] {
+  const keys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith("zklaim_passport_credentials_")) {
+      keys.push(key);
+    }
+  }
+  if (localStorage.getItem(LEGACY_CREDENTIAL_STORAGE_KEY)) {
+    keys.push(LEGACY_CREDENTIAL_STORAGE_KEY);
+  }
+  return keys;
+}
+
+function readAll(walletAddress: string): StoredCredentialSession[] {
+  const walletId = patientWalletId(walletAddress);
+  if (!walletId) return [];
+  try {
+    const raw = localStorage.getItem(credentialStorageKey(walletId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as StoredCredentialSession[];
+    return parsed.filter((s) => patientWalletId(s.patient) === walletId);
+  } catch {
+    return [];
+  }
+}
+
+function writeAll(
+  walletAddress: string,
+  sessions: StoredCredentialSession[],
+): void {
+  const walletId = requirePatientWalletId(walletAddress);
+  localStorage.setItem(
+    credentialStorageKey(walletId),
+    JSON.stringify(sessions),
+  );
+}
+
+/** Migrate legacy global credential list into the given wallet bucket. */
+export function migrateLegacyCredentialSessions(walletAddress: string): void {
+  const walletId = patientWalletId(walletAddress);
+  if (!walletId) return;
+  if (localStorage.getItem(credentialStorageKey(walletId))) return;
+
+  try {
+    const raw = localStorage.getItem(LEGACY_CREDENTIAL_STORAGE_KEY);
+    if (!raw) return;
+    const legacy = JSON.parse(raw) as StoredCredentialSession[];
+    const owned = legacy.filter((s) => patientWalletId(s.patient) === walletId);
+    if (owned.length > 0) {
+      writeAll(walletId, owned);
+    }
+    localStorage.removeItem(LEGACY_CREDENTIAL_STORAGE_KEY);
+  } catch {
+    // ignore corrupt legacy data
+  }
 }
 
 export function saveCredentialSession(
+  walletAddress: string,
   session: Omit<StoredCredentialSession, "id" | "createdAt">,
 ): StoredCredentialSession {
+  const walletId = requirePatientWalletId(walletAddress);
+  if (patientWalletId(session.patient) !== walletId) {
+    throw new Error("Credential session patient must match the active wallet.");
+  }
   const entry: StoredCredentialSession = {
     ...session,
+    patient: walletId,
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
   };
-  writeAll([entry, ...readAll()]);
+  writeAll(walletId, [entry, ...readAll(walletId)]);
   return entry;
 }
 
-export function listCredentialSessions(): StoredCredentialSession[] {
-  return readAll();
+export function listCredentialSessions(
+  walletAddress: string,
+): StoredCredentialSession[] {
+  migrateLegacyCredentialSessions(walletAddress);
+  return readAll(walletAddress);
 }
 
 export function findCredentialById(
   credentialId: number,
+  walletAddress?: string | null,
 ): { session: StoredCredentialSession; proof: StoredCredentialProof } | null {
-  for (const session of readAll()) {
-    const proof = session.proofs.find((p) => p.credentialId === credentialId);
-    if (proof) return { session, proof };
+  if (walletAddress) {
+    migrateLegacyCredentialSessions(walletAddress);
+    for (const session of readAll(walletAddress)) {
+      const proof = session.proofs.find((p) => p.credentialId === credentialId);
+      if (proof) return { session, proof };
+    }
+  }
+
+  for (const key of allCredentialStorageKeys()) {
+    for (const session of readRawSessions(key)) {
+      const proof = session.proofs.find((p) => p.credentialId === credentialId);
+      if (proof) return { session, proof };
+    }
   }
   return null;
 }
 
-export function latestCredentialSession(): StoredCredentialSession | null {
-  const all = readAll();
+export function latestCredentialSession(
+  walletAddress: string,
+): StoredCredentialSession | null {
+  const all = listCredentialSessions(walletAddress);
   return all[0] ?? null;
 }

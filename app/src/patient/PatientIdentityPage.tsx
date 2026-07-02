@@ -4,6 +4,7 @@ import {
   IdentityStatusOverview,
 } from "./IdentityCard";
 import { usePatientStore } from "../store/patientStore";
+import { useWalletStore } from "../store/wallet";
 import { PageGrid, PageColumn } from "../components/ui/PageGrid";
 import { SectionCard } from "../components/ui/SectionCard";
 
@@ -45,6 +46,18 @@ function HowItWorksCard() {
 
 export function PatientIdentityPage() {
   const identity = usePatientStore((s) => s.identity);
+  const walletAddress = useWalletStore((s) => s.address);
+
+  if (!walletAddress) {
+    return (
+      <SectionCard label="Wallet" title="Connect your patient wallet">
+        <p className="text-sm text-muted-foreground">
+          Connect Freighter to create or load an identity for this account. Each
+          wallet has its own encryption keys, inbox, history, and passport.
+        </p>
+      </SectionCard>
+    );
+  }
 
   if (!identity) {
     return (

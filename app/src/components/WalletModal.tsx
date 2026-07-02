@@ -6,6 +6,7 @@ import {
 } from "../lib/walletSetup";
 import { useWalletStore } from "../store/wallet";
 import { toast } from "../lib/toast";
+import { ModalPortal } from "./ModalPortal";
 
 const INITIAL_STEPS = [
   { label: "Connect Freighter (testnet)", status: "idle" as SetupStepStatus, detail: "" },
@@ -117,6 +118,7 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
   if (!open) return null;
 
   return (
+    <ModalPortal>
     <div
       className="modal-overlay"
       role="dialog"
@@ -292,5 +294,6 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
         </footer>
       </div>
     </div>
+    </ModalPortal>
   );
 }

@@ -7,6 +7,8 @@ import { StepFormNav } from "../components/ui/StepFormNav";
 import { StepFormProgress } from "../components/ui/StepFormProgress";
 import { StepFormLayout } from "../components/ui/StepFormLayout";
 import { ensureWalletConnected } from "../lib/walletSession";
+import { usePatientStore } from "../store/patientStore";
+import { useWalletStore } from "../store/wallet";
 import { loadPassportStore } from "../lib/passportStore";
 import {
   EXCLUDABLE_CATEGORIES,
@@ -31,6 +33,9 @@ const TTL_LEDGERS = 50_000;
 const STEPS = ["Verifier", "Categories", "Review"] as const;
 
 export function PatientPassportSharePage() {
+  const identity = usePatientStore((s) => s.identity);
+  const activeWalletAddress = usePatientStore((s) => s.activeWalletAddress);
+  const walletAddress = useWalletStore((s) => s.address);
   const [step, setStep] = useState(0);
   const [excluded, setExcluded] = useState<string[]>(["C"]);
   const [verifier, setVerifier] = useState("");
@@ -84,7 +89,7 @@ export function PatientPassportSharePage() {
         toast.success("Verifier auto-whitelisted on-chain");
       }
 
-      const store = await loadPassportStore();
+      const store = await loadPassportStore(patient);
       if (!store || store.leaves.length === 0) {
         throw new Error("No claims in passport — settle and add a claim first");
       }
@@ -131,7 +136,7 @@ export function PatientPassportSharePage() {
         });
       }
 
-      saveCredentialSession({
+      saveCredentialSession(patient, {
         patient,
         verifier: verifierAddr,
         passportRoot: rootHex,
@@ -155,6 +160,26 @@ export function PatientPassportSharePage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (!walletAddress) {
+    return (
+      <SectionCard label="Wallet" title="Connect your patient wallet">
+        <p className="text-sm text-muted-foreground">
+          Connect Freighter to generate passport credentials for this account.
+        </p>
+      </SectionCard>
+    );
+  }
+
+  if (!identity || !activeWalletAddress) {
+    return (
+      <SectionCard label="Setup required" title="Complete identity setup first">
+        <p className="text-sm text-muted-foreground">
+          Set up your identity for this wallet before sharing credentials.
+        </p>
+      </SectionCard>
+    );
   }
 
   if (issuedProofs.length > 0) {

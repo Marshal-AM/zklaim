@@ -13,6 +13,8 @@ import { ProviderRegisterPage } from "../../provider/ProviderRegisterPage";
 import { ProviderHistoryPage } from "../../provider/ProviderHistoryPage";
 import { HomePage } from "../../pages/HomePage";
 import { WalletHydrator } from "../WalletHydrator";
+import { PatientWalletHydrator } from "../PatientWalletHydrator";
+import { ProviderWalletHydrator } from "../ProviderWalletHydrator";
 import { PatientLayout } from "./PatientLayout";
 import { ProviderLayout } from "./ProviderLayout";
 import { AppNavbar } from "./AppNavbar";
@@ -25,6 +27,8 @@ export function AppShell() {
   return (
     <div className="flex min-h-screen min-w-0 flex-col overflow-x-clip bg-background select-none">
       <WalletHydrator />
+      <PatientWalletHydrator />
+      <ProviderWalletHydrator />
       <AppNavbar />
       <main
         className={

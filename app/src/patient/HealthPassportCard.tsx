@@ -87,8 +87,8 @@ export function HealthPassportCard({
               <p className="health-passport__observations-text">
                 No claims in your passport yet. After settlement, click{" "}
                 <span className="font-[650] text-foreground">Add to Passport</span> on
-                the receipt (Submit tab) or on Patient → History. Passport data stays in
-                this browser (OPFS) for the connected patient wallet.
+                the receipt (Submit tab) or on Patient → History. Passport data is stored
+                per wallet in this browser (OPFS).
               </p>
             </div>
           )}

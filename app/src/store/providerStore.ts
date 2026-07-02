@@ -9,16 +9,18 @@ export interface ProviderHistoryEntry {
   visit_date?: number;
   amount_cents?: number;
   license_id?: string;
-  /** true = Supabase inbox delivery; false = QR / deep link only */
+  /** true = Supabase inbox delivery; false = deep link only */
   delivered_to_inbox?: boolean;
 }
 
 interface ProviderState {
+  activeWalletAddress: string | null;
   history: ProviderHistoryEntry[];
   addHistory: (entry: ProviderHistoryEntry) => void;
 }
 
 export const useProviderStore = create<ProviderState>((set) => ({
+  activeWalletAddress: null,
   history: [],
   addHistory: (entry) =>
     set((s) => ({ history: [entry, ...s.history] })),

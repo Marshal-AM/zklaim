@@ -8,6 +8,7 @@ import type {
 export type { PatientIdentity, InboxClaim, ClaimHistoryEntry };
 
 interface PatientState {
+  activeWalletAddress: string | null;
   identity: PatientIdentity | null;
   inbox: InboxClaim[];
   history: ClaimHistoryEntry[];
@@ -16,12 +17,24 @@ interface PatientState {
   updateInboxClaim: (id: string, patch: Partial<InboxClaim>) => void;
   addHistory: (entry: ClaimHistoryEntry) => void;
   updateAccumulator: (metCents: number) => void;
+  resetPatientSession: () => void;
+  loadPatientSession: (data: {
+    activeWalletAddress: string;
+    identity: PatientIdentity | null;
+    inbox: InboxClaim[];
+    history: ClaimHistoryEntry[];
+  }) => void;
 }
 
+const EMPTY_PATIENT_STATE = {
+  activeWalletAddress: null as string | null,
+  identity: null as PatientIdentity | null,
+  inbox: [] as InboxClaim[],
+  history: [] as ClaimHistoryEntry[],
+};
+
 export const usePatientStore = create<PatientState>((set) => ({
-  identity: null,
-  inbox: [],
-  history: [],
+  ...EMPTY_PATIENT_STATE,
   setIdentity: (identity) => set({ identity }),
   addInboxClaim: (claim) =>
     set((s) => ({ inbox: [...s.inbox, claim] })),
@@ -39,4 +52,12 @@ export const usePatientStore = create<PatientState>((set) => ({
           }
         : {},
     ),
+  resetPatientSession: () => set({ ...EMPTY_PATIENT_STATE }),
+  loadPatientSession: (data) =>
+    set({
+      activeWalletAddress: data.activeWalletAddress,
+      identity: data.identity,
+      inbox: data.inbox,
+      history: data.history,
+    }),
 }));

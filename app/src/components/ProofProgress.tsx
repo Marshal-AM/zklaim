@@ -12,23 +12,34 @@ const STAGES: { key: ProofProgressStage; label: string; index: number }[] = [
 interface ProofProgressProps {
   currentStage: ProofProgressStage | null;
   startedAt: number | null;
+  completed?: boolean;
+  completedAt?: number | null;
 }
 
-export function ProofProgress({ currentStage, startedAt }: ProofProgressProps) {
-  const currentIndex =
-    STAGES.find((s) => s.key === currentStage)?.index ?? 0;
-  const elapsed = startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0;
+export function ProofProgress({
+  currentStage,
+  startedAt,
+  completed = false,
+  completedAt = null,
+}: ProofProgressProps) {
+  const currentIndex = completed
+    ? STAGES.length
+    : (STAGES.find((s) => s.key === currentStage)?.index ?? 0);
+  const endTime = completed && completedAt ? completedAt : Date.now();
+  const elapsed = startedAt ? Math.floor((endTime - startedAt) / 1000) : 0;
 
   return (
     <div className="card-padded space-y-4">
       <p className="text-sm text-muted-foreground">
-        Your diagnosis stays private · ~7–10 seconds
+        {completed
+          ? "Submission finished — review the activity log below"
+          : "Your diagnosis stays private · ~7–10 seconds"}
         {startedAt ? ` · ${elapsed}s` : ""}
       </p>
       <div className="space-y-2">
         {STAGES.map((stage) => {
-          const done = stage.index <= currentIndex;
-          const active = stage.key === currentStage;
+          const done = completed || stage.index <= currentIndex;
+          const active = !completed && stage.key === currentStage;
           return (
             <div
               key={stage.key}
