@@ -12,7 +12,6 @@ Private medical claim settlement on Stellar via Noir UltraHonk proofs, Authorize
 
 | Resource | Link |
 |----------|------|
-| GitHub repository | [Marshal-AM/zklaim](https://github.com/Marshal-AM/zklaim) |
 | Demo video | [YouTube](https://www.youtube.com/watch?v=6MO-IkHvOYw) |
 | Pitch deck | [Canva](https://canva.link/mv6ah09yyudjjpj) |
 | Live app | [zklaim-app-lilac.vercel.app](https://zklaim-app-lilac.vercel.app/) |
