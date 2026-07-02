@@ -1,0 +1,947 @@
+18:20:45
+info
+Submit claim started
+{
+  "claimId": "0x19d79248f9beaf65d7138db9186e757bb26381a1fb84e4b055d0ae1e32714aa0",
+  "claimShortId": "0x19d79248…714aa0",
+  "claimSummary": {
+    "amount": "$1.00",
+    "icd_code": "J18.9",
+    "visit_date": 20260702,
+    "doctor_license_id": "MD-001"
+  },
+  "deliveryId": "0bd66214-8550-428d-b256-5b5ccb63bee4",
+  "receivedAt": "2026-07-02T12:50:44.573Z",
+  "rpcUrl": "https://soroban-testnet.stellar.org",
+  "escrowContractId": "CDNKOOSHNSFTCLFIISCTENSNCHEPL5CUCNS7WTJM7TAEOBCQCJYI4IAI"
+}
+18:20:45
+info
+Connecting Freighter wallet…
+18:20:45
+success
+Wallet connected
+{
+  "address": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC"
+}
+18:20:45
+info
+Verifying Merkle tree / on-chain alignment…
+18:20:46
+success
+Tree alignment verified
+{
+  "manifestGeneratedAt": "2026-07-02T11:09:23.527Z",
+  "aspLeafCount": 3
+}
+18:20:46
+info
+Fetching USDC balance (before)…
+18:20:47
+success
+Balance snapshot (before)
+{
+  "usdc": "$2.40",
+  "raw": 240
+}
+18:20:47
+info
+Decrypting claim token with patient box key…
+18:20:47
+success
+Claim token decrypted
+{
+  "policy_id": "DEMO-POLICY-001",
+  "amount_cents": 100,
+  "visit_date": 20260702,
+  "icd_code": "J18.9",
+  "doctor_license_id": "MD-001",
+  "doctor_address": "GA2HENU4XKUUKYJRL6B3PNX7CB2WYO3F5JXLQZNBQV2VLZ27KB63L3PV",
+  "has_doctor_signature": true,
+  "token_policy_floor_cents": 100,
+  "token_policy_ceiling_cents": 50000,
+  "content_address": "zklaim://sha256/81e0fdcf995c9f8033912e3d710121e69da69bd2adc7f16fab449987ae7f9d80",
+  "insurer_view_attached": true
+}
+18:20:47
+info
+Checking deductible accumulator vs on-chain…
+18:20:47
+info
+Found prior submitted claim for accumulator chaining
+{
+  "priorClaimId": "0xe99a767072c246973684a2f067c9fbc0cb461c8438bcd601a3b5d4beda6a3795",
+  "prior_amount_cents": 100
+}
+18:20:47
+success
+Accumulator continuity OK
+{
+  "onChainCommit": "16ee0323225d3947b93195724fb056aaee0933921dc4056388550d0b62cbfd21",
+  "expectedPrevCommit": "16ee0323225d3947b93195724fb056aaee0933921dc4056388550d0b62cbfd21"
+}
+18:20:47
+info
+Hydrating claim data (trees + WASM circuits)…
+18:20:48
+success
+Claim data hydrated
+{
+  "policy_floor_cents": 100,
+  "policy_ceiling_cents": 50000,
+  "deductible_met_cents": 80300,
+  "deductible_limit_cents": 100000,
+  "insurer": "GBEQTRDIJYZPZG6OUIILUE5Z57RLMAWDF63BDAXENFD3CHP2XU2EYC7A"
+}
+18:20:48
+info
+Generating ZK proofs in Web Workers (~7–10s)…
+{
+  "cross_origin_isolated": true
+}
+18:20:50
+info
+ZK proof 1/4 — policy validity
+18:20:50
+success
+Circuit proved: policy_validity
+{
+  "proof_bytes": 14592,
+  "public_input_count": 3,
+  "public_inputs_preview": [
+    "80072aa0d6d0b1dc",
+    "c01e3d3e4e8cf1e6",
+    "18a4968eb8d0cf16"
+  ]
+}
+18:20:50
+info
+ZK proof 3/4 — doctor attestation
+18:20:50
+success
+Circuit proved: doctor_attestation
+{
+  "proof_bytes": 14592,
+  "public_input_count": 4,
+  "public_inputs_preview": [
+    "27d0c85ac20c7787",
+    "24f1acb00ca3e27f",
+    "18a4968eb8d0cf16",
+    "2c151e42278b02a8"
+  ]
+}
+18:20:51
+info
+ZK proof 2/4 — amount range
+18:20:51
+success
+Circuit proved: amount_range
+{
+  "proof_bytes": 14592,
+  "public_input_count": 3,
+  "public_inputs_preview": [
+    "261f350d00825bf9",
+    "bba3894e23836509",
+    "18a4968eb8d0cf16"
+  ]
+}
+18:20:53
+info
+ZK proof 4/4 — deductible accumulator
+18:20:53
+success
+Circuit proved: deductible_accumulator
+{
+  "proof_bytes": 14592,
+  "public_input_count": 5,
+  "public_inputs_preview": [
+    "16ee0323225d3947",
+    "2424e23ee5b7311c",
+    "261f350d00825bf9",
+    "0"
+  ]
+}
+18:20:53
+info
+Computing claim nullifier
+18:20:53
+info
+Fraud ASP non-membership proof
+18:20:53
+success
+All proofs generated
+{
+  "nullifier": "0x181a3bb7960b7b4cb856b4548ae6206394bc7704c44e1a142803023d37c34eb9",
+  "claim_hash": "0x18a4968eb8d0cf16eaac861d749801b61c42945a236cc7039e02705d117d462f",
+  "payout_amount": "100",
+  "fraud_proof_present": true,
+  "fraud_path_depth": 16,
+  "billing_pattern_hash": "0x0b9e57b8bfc56c0c54372993a8f6e5122a60e84db98dfeb11967d95b0f91a8dc",
+  "insurer": "GBEQTRDIJYZPZG6OUIILUE5Z57RLMAWDF63BDAXENFD3CHP2XU2EYC7A"
+}
+18:20:53
+info
+Requesting Freighter signature (fresh simulate → sign → send)…
+18:20:53
+info
+Simulating + signing (approve Freighter when prompted)…
+{
+  "attempt": 0
+}
+18:20:53
+warn
+[Soroban] tx snapshot: unsigned
+{
+  "stage": "unsigned",
+  "attempt": 0,
+  "source": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "sequence": "14582895733637126",
+  "fee": "100",
+  "timeboundsMin": {
+    "_value": "0"
+  },
+  "timeboundsMax": {
+    "_value": "1782996683"
+  },
+  "timeboundsExpired": false,
+  "secondsUntilMaxTime": 30,
+  "extSwitch": 0,
+  "hasSorobanExt": false,
+  "resourceFee": null,
+  "feeMinusNetworkBase": null,
+  "feeEquationOk": null,
+  "feeEquationExpected": null,
+  "instructions": null,
+  "readBytes": null,
+  "writeBytes": null,
+  "footprintReadOnlyCount": 0,
+  "footprintReadWriteCount": 0,
+  "footprintReadOnlyPreview": [],
+  "footprintReadWritePreview": [],
+  "operationType": "invokeHostFunction",
+  "operationSource": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "authEntryCount": 0,
+  "unsignedAuthForPatient": [],
+  "authEntries": [],
+  "signatureCount": 0,
+  "sorobanDataFingerprint": null,
+  "envelopeFingerprint": "00791af30fd6d551",
+  "envelopeXdrByteLength": 60560,
+  "problems": [
+    "missing Soroban ext.sorobanData on envelope"
+  ]
+}
+18:20:55
+info
+[Soroban] tx snapshot: prepared
+{
+  "stage": "prepared",
+  "attempt": 0,
+  "source": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "sequence": "14582895733637126",
+  "fee": "998007",
+  "timeboundsMin": {
+    "_value": "0"
+  },
+  "timeboundsMax": {
+    "_value": "1782996683"
+  },
+  "timeboundsExpired": false,
+  "secondsUntilMaxTime": 28,
+  "extSwitch": 1,
+  "hasSorobanExt": true,
+  "resourceFee": "997907",
+  "feeMinusNetworkBase": 997907,
+  "feeEquationOk": true,
+  "feeEquationExpected": "998007",
+  "instructions": 391437743,
+  "readBytes": 116,
+  "writeBytes": 648,
+  "footprintReadOnlyCount": 13,
+  "footprintReadWriteCount": 4,
+  "footprintReadOnlyPreview": [
+    "contractData:CA7P26YP… key=scvLedgerKeyContractInstance",
+    "contractData:CBIELTK6… key=scvLedgerKeyContractInstance",
+    "contractData:CBY2Q7HQ… key=scvLedgerKeyContractInstance",
+    "contractData:CCHJN6US… key=scvLedgerKeyContractInstance",
+    "contractData:CCRPHSHY… key=scvLedgerKeyContractInstance",
+    "contractData:CDNKOOSH… key=scvLedgerKeyContractInstance"
+  ],
+  "footprintReadWritePreview": [
+    "trustline",
+    "contractData:CBIELTK6… key=scvVec",
+    "contractData:CCHJN6US… key=scvVec",
+    "contractData:CDNKOOSH… key=scvVec"
+  ],
+  "operationType": "invokeHostFunction",
+  "operationSource": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "authEntryCount": 1,
+  "unsignedAuthForPatient": [],
+  "authEntries": [
+    {
+      "index": 0,
+      "credentialsType": "sorobanCredentialsSourceAccount",
+      "address": null,
+      "signatureType": null,
+      "signatureExpirationLedger": null,
+      "subInvocations": 0
+    }
+  ],
+  "signatureCount": 0,
+  "sorobanDataFingerprint": "c3329a5afbc01d46",
+  "envelopeFingerprint": "fb5d5e41368a3ce0",
+  "envelopeXdrByteLength": 122008,
+  "problems": []
+}
+18:20:57
+info
+[Soroban] simulation: enforce-sim
+{
+  "stage": "enforce-sim",
+  "latestLedger": 3396357,
+  "minResourceFee": "997935",
+  "simAuthCount": 1,
+  "costCpu": null,
+  "costMem": null,
+  "transactionDataFingerprint": "8bd5850308dc5ec8",
+  "retvalType": "scvVoid",
+  "error": null
+}
+18:20:57
+info
+[Soroban] tx snapshot: assembled-enforce
+{
+  "stage": "assembled-enforce",
+  "attempt": 0,
+  "source": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "sequence": "14582895733637126",
+  "fee": "998035",
+  "timeboundsMin": {
+    "_value": "0"
+  },
+  "timeboundsMax": {
+    "_value": "1782996683"
+  },
+  "timeboundsExpired": false,
+  "secondsUntilMaxTime": 26,
+  "extSwitch": 1,
+  "hasSorobanExt": true,
+  "resourceFee": "997935",
+  "feeMinusNetworkBase": 997935,
+  "feeEquationOk": true,
+  "feeEquationExpected": "998035",
+  "instructions": 391478432,
+  "readBytes": 116,
+  "writeBytes": 648,
+  "footprintReadOnlyCount": 13,
+  "footprintReadWriteCount": 4,
+  "footprintReadOnlyPreview": [
+    "contractData:CA7P26YP… key=scvLedgerKeyContractInstance",
+    "contractData:CBIELTK6… key=scvLedgerKeyContractInstance",
+    "contractData:CBY2Q7HQ… key=scvLedgerKeyContractInstance",
+    "contractData:CCHJN6US… key=scvLedgerKeyContractInstance",
+    "contractData:CCRPHSHY… key=scvLedgerKeyContractInstance",
+    "contractData:CDNKOOSH… key=scvLedgerKeyContractInstance"
+  ],
+  "footprintReadWritePreview": [
+    "trustline",
+    "contractData:CBIELTK6… key=scvVec",
+    "contractData:CCHJN6US… key=scvVec",
+    "contractData:CDNKOOSH… key=scvVec"
+  ],
+  "operationType": "invokeHostFunction",
+  "operationSource": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "authEntryCount": 1,
+  "unsignedAuthForPatient": [],
+  "authEntries": [
+    {
+      "index": 0,
+      "credentialsType": "sorobanCredentialsSourceAccount",
+      "address": null,
+      "signatureType": null,
+      "signatureExpirationLedger": null,
+      "subInvocations": 0
+    }
+  ],
+  "signatureCount": 0,
+  "sorobanDataFingerprint": "8bd5850308dc5ec8",
+  "envelopeFingerprint": "7f6f87337558eac0",
+  "envelopeXdrByteLength": 122008,
+  "problems": []
+}
+18:20:57
+info
+[Soroban] footprint TTL check
+{
+  "uniqueKeyCount": 17,
+  "readOnlyCount": 13,
+  "readWriteCount": 4
+}
+18:20:58
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAABgAAAAHapzpHbIsxLKhEhTI2TRHI9fRUE2X7",
+  "liveUntilLedger": 3427880,
+  "ledgersRemaining": 31523
+}
+18:20:58
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAABgAAAAHs9AirWjR4Sdy/KYzPvvp4bm0QeoCv",
+  "liveUntilLedger": 3419465,
+  "ledgersRemaining": 23108
+}
+18:20:58
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAABgAAAAFQRc1ewHKado/VrQJQWFLfTwKNzoMO",
+  "liveUntilLedger": 5630208,
+  "ledgersRemaining": 2233851
+}
+18:20:58
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAABgAAAAE+/XsPsESef7VpU3j3OuGyjHQKAL2h",
+  "liveUntilLedger": 3427734,
+  "ledgersRemaining": 31377
+}
+18:20:58
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAABgAAAAGOlvqS5CsXbm4w6lPDZZE+irB4FHvd",
+  "liveUntilLedger": 3427865,
+  "ledgersRemaining": 31508
+}
+18:20:58
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAABgAAAAGi88j4haOQVWCLLRVJjVfUKFPshc2n",
+  "liveUntilLedger": 3427820,
+  "ledgersRemaining": 31463
+}
+18:20:58
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAABwkIXpo9yRU+xI5VCetrxd4SeGgEhs7KYKHr",
+  "liveUntilLedger": 3419461,
+  "ledgersRemaining": 23104
+}
+18:20:58
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAABgAAAAFxqHzwybShiyITJjf4NTAo2uvU7Fqp",
+  "liveUntilLedger": 3419300,
+  "ledgersRemaining": 22943
+}
+18:20:59
+info
+[Soroban] footprint key not on ledger — skip restore (never written or proof-only has())
+{
+  "keyPreview": "AAAABgAAAAHapzpHbIsxLKhEhTI2TRHI9fRUE2X7",
+  "keyType": "contractData"
+}
+18:20:59
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAABgAAAAFQRc1ewHKado/VrQJQWFLfTwKNzoMO",
+  "liveUntilLedger": 3912214,
+  "ledgersRemaining": 515857
+}
+18:20:59
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAABgAAAAGOlvqS5CsXbm4w6lPDZZE+irB4FHvd",
+  "liveUntilLedger": 3516564,
+  "ledgersRemaining": 120207
+}
+18:20:59
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAAB51uMsMNelNzZ1zbjCOZ7zcmLdizEcwQbedt",
+  "liveUntilLedger": 3419468,
+  "ledgersRemaining": 23111
+}
+18:20:59
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAAB+xt851cFxcguIQRheGTimIgmPd+q+z/Iu7L",
+  "liveUntilLedger": 3419524,
+  "ledgersRemaining": 23167
+}
+18:20:59
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAAB5o5OFxgGQcR4SHe/OTdz5yte1EQ/4B9p7bg",
+  "liveUntilLedger": 3419423,
+  "ledgersRemaining": 23066
+}
+18:20:59
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAAB1FRqPQxYUIlgAD5e15mPCJ+pL0j3bp0+Q22",
+  "liveUntilLedger": 3419391,
+  "ledgersRemaining": 23034
+}
+18:20:59
+info
+[Soroban] footprint entry TTL ok
+{
+  "keyPreview": "AAAAB5q+VNmjqOMTfhvxlxvGlkc+I5K8d5Gm+gQE",
+  "liveUntilLedger": 3419285,
+  "ledgersRemaining": 22928
+}
+18:20:59
+info
+[Soroban] all footprint TTLs healthy — restore not needed
+{}
+18:21:01
+info
+[Soroban] tx snapshot: prepared
+{
+  "stage": "prepared",
+  "attempt": 0,
+  "source": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "sequence": "14582895733637126",
+  "fee": "998007",
+  "timeboundsMin": {
+    "_value": "0"
+  },
+  "timeboundsMax": {
+    "_value": "1782996690"
+  },
+  "timeboundsExpired": false,
+  "secondsUntilMaxTime": 29,
+  "extSwitch": 1,
+  "hasSorobanExt": true,
+  "resourceFee": "997907",
+  "feeMinusNetworkBase": 997907,
+  "feeEquationOk": true,
+  "feeEquationExpected": "998007",
+  "instructions": 391437743,
+  "readBytes": 116,
+  "writeBytes": 648,
+  "footprintReadOnlyCount": 13,
+  "footprintReadWriteCount": 4,
+  "footprintReadOnlyPreview": [
+    "contractData:CA7P26YP… key=scvLedgerKeyContractInstance",
+    "contractData:CBIELTK6… key=scvLedgerKeyContractInstance",
+    "contractData:CBY2Q7HQ… key=scvLedgerKeyContractInstance",
+    "contractData:CCHJN6US… key=scvLedgerKeyContractInstance",
+    "contractData:CCRPHSHY… key=scvLedgerKeyContractInstance",
+    "contractData:CDNKOOSH… key=scvLedgerKeyContractInstance"
+  ],
+  "footprintReadWritePreview": [
+    "trustline",
+    "contractData:CBIELTK6… key=scvVec",
+    "contractData:CCHJN6US… key=scvVec",
+    "contractData:CDNKOOSH… key=scvVec"
+  ],
+  "operationType": "invokeHostFunction",
+  "operationSource": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "authEntryCount": 1,
+  "unsignedAuthForPatient": [],
+  "authEntries": [
+    {
+      "index": 0,
+      "credentialsType": "sorobanCredentialsSourceAccount",
+      "address": null,
+      "signatureType": null,
+      "signatureExpirationLedger": null,
+      "subInvocations": 0
+    }
+  ],
+  "signatureCount": 0,
+  "sorobanDataFingerprint": "c3329a5afbc01d46",
+  "envelopeFingerprint": "c9687e388c360f9a",
+  "envelopeXdrByteLength": 122008,
+  "problems": []
+}
+18:21:03
+info
+[Soroban] simulation: enforce-sim
+{
+  "stage": "enforce-sim",
+  "latestLedger": 3396358,
+  "minResourceFee": "997935",
+  "simAuthCount": 1,
+  "costCpu": null,
+  "costMem": null,
+  "transactionDataFingerprint": "8bd5850308dc5ec8",
+  "retvalType": "scvVoid",
+  "error": null
+}
+18:21:03
+info
+[Soroban] tx snapshot: assembled-enforce
+{
+  "stage": "assembled-enforce",
+  "attempt": 0,
+  "source": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "sequence": "14582895733637126",
+  "fee": "998035",
+  "timeboundsMin": {
+    "_value": "0"
+  },
+  "timeboundsMax": {
+    "_value": "1782996690"
+  },
+  "timeboundsExpired": false,
+  "secondsUntilMaxTime": 27,
+  "extSwitch": 1,
+  "hasSorobanExt": true,
+  "resourceFee": "997935",
+  "feeMinusNetworkBase": 997935,
+  "feeEquationOk": true,
+  "feeEquationExpected": "998035",
+  "instructions": 391478432,
+  "readBytes": 116,
+  "writeBytes": 648,
+  "footprintReadOnlyCount": 13,
+  "footprintReadWriteCount": 4,
+  "footprintReadOnlyPreview": [
+    "contractData:CA7P26YP… key=scvLedgerKeyContractInstance",
+    "contractData:CBIELTK6… key=scvLedgerKeyContractInstance",
+    "contractData:CBY2Q7HQ… key=scvLedgerKeyContractInstance",
+    "contractData:CCHJN6US… key=scvLedgerKeyContractInstance",
+    "contractData:CCRPHSHY… key=scvLedgerKeyContractInstance",
+    "contractData:CDNKOOSH… key=scvLedgerKeyContractInstance"
+  ],
+  "footprintReadWritePreview": [
+    "trustline",
+    "contractData:CBIELTK6… key=scvVec",
+    "contractData:CCHJN6US… key=scvVec",
+    "contractData:CDNKOOSH… key=scvVec"
+  ],
+  "operationType": "invokeHostFunction",
+  "operationSource": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "authEntryCount": 1,
+  "unsignedAuthForPatient": [],
+  "authEntries": [
+    {
+      "index": 0,
+      "credentialsType": "sorobanCredentialsSourceAccount",
+      "address": null,
+      "signatureType": null,
+      "signatureExpirationLedger": null,
+      "subInvocations": 0
+    }
+  ],
+  "signatureCount": 0,
+  "sorobanDataFingerprint": "8bd5850308dc5ec8",
+  "envelopeFingerprint": "8a748a306d237718",
+  "envelopeXdrByteLength": 122008,
+  "problems": []
+}
+18:21:03
+info
+[Soroban] tx snapshot: pre-freighter
+{
+  "stage": "pre-freighter",
+  "attempt": 0,
+  "source": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "sequence": "14582895733637126",
+  "fee": "998035",
+  "timeboundsMin": {
+    "_value": "0"
+  },
+  "timeboundsMax": {
+    "_value": "1782996690"
+  },
+  "timeboundsExpired": false,
+  "secondsUntilMaxTime": 27,
+  "extSwitch": 1,
+  "hasSorobanExt": true,
+  "resourceFee": "997935",
+  "feeMinusNetworkBase": 997935,
+  "feeEquationOk": true,
+  "feeEquationExpected": "998035",
+  "instructions": 391478432,
+  "readBytes": 116,
+  "writeBytes": 648,
+  "footprintReadOnlyCount": 13,
+  "footprintReadWriteCount": 4,
+  "footprintReadOnlyPreview": [
+    "contractData:CA7P26YP… key=scvLedgerKeyContractInstance",
+    "contractData:CBIELTK6… key=scvLedgerKeyContractInstance",
+    "contractData:CBY2Q7HQ… key=scvLedgerKeyContractInstance",
+    "contractData:CCHJN6US… key=scvLedgerKeyContractInstance",
+    "contractData:CCRPHSHY… key=scvLedgerKeyContractInstance",
+    "contractData:CDNKOOSH… key=scvLedgerKeyContractInstance"
+  ],
+  "footprintReadWritePreview": [
+    "trustline",
+    "contractData:CBIELTK6… key=scvVec",
+    "contractData:CCHJN6US… key=scvVec",
+    "contractData:CDNKOOSH… key=scvVec"
+  ],
+  "operationType": "invokeHostFunction",
+  "operationSource": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "authEntryCount": 1,
+  "unsignedAuthForPatient": [],
+  "authEntries": [
+    {
+      "index": 0,
+      "credentialsType": "sorobanCredentialsSourceAccount",
+      "address": null,
+      "signatureType": null,
+      "signatureExpirationLedger": null,
+      "subInvocations": 0
+    }
+  ],
+  "signatureCount": 0,
+  "sorobanDataFingerprint": "8bd5850308dc5ec8",
+  "envelopeFingerprint": "8a748a306d237718",
+  "envelopeXdrByteLength": 122008,
+  "problems": []
+}
+18:21:03
+info
+[Soroban] pre-freighter checks
+{
+  "fee": "998035",
+  "resourceFee": "997935",
+  "feeEquationOk": true,
+  "txBodyHash": "f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61"
+}
+18:21:06
+info
+[Soroban] tx snapshot: post-freighter
+{
+  "stage": "post-freighter",
+  "attempt": 0,
+  "source": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "sequence": "14582895733637126",
+  "fee": "998035",
+  "timeboundsMin": {
+    "_value": "0"
+  },
+  "timeboundsMax": {
+    "_value": "1782996690"
+  },
+  "timeboundsExpired": false,
+  "secondsUntilMaxTime": 24,
+  "extSwitch": 1,
+  "hasSorobanExt": true,
+  "resourceFee": "997935",
+  "feeMinusNetworkBase": 997935,
+  "feeEquationOk": true,
+  "feeEquationExpected": "998035",
+  "instructions": 391478432,
+  "readBytes": 116,
+  "writeBytes": 648,
+  "footprintReadOnlyCount": 13,
+  "footprintReadWriteCount": 4,
+  "footprintReadOnlyPreview": [
+    "contractData:CA7P26YP… key=scvLedgerKeyContractInstance",
+    "contractData:CBIELTK6… key=scvLedgerKeyContractInstance",
+    "contractData:CBY2Q7HQ… key=scvLedgerKeyContractInstance",
+    "contractData:CCHJN6US… key=scvLedgerKeyContractInstance",
+    "contractData:CCRPHSHY… key=scvLedgerKeyContractInstance",
+    "contractData:CDNKOOSH… key=scvLedgerKeyContractInstance"
+  ],
+  "footprintReadWritePreview": [
+    "trustline",
+    "contractData:CBIELTK6… key=scvVec",
+    "contractData:CCHJN6US… key=scvVec",
+    "contractData:CDNKOOSH… key=scvVec"
+  ],
+  "operationType": "invokeHostFunction",
+  "operationSource": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "authEntryCount": 1,
+  "unsignedAuthForPatient": [],
+  "authEntries": [
+    {
+      "index": 0,
+      "credentialsType": "sorobanCredentialsSourceAccount",
+      "address": null,
+      "signatureType": null,
+      "signatureExpirationLedger": null,
+      "subInvocations": 0
+    }
+  ],
+  "signatureCount": 1,
+  "sorobanDataFingerprint": "8bd5850308dc5ec8",
+  "envelopeFingerprint": "989c51f6f372c2a7",
+  "envelopeXdrByteLength": 122080,
+  "problems": []
+}
+18:21:06
+info
+[Soroban] compare: pre-freighter vs post-freighter
+{
+  "label": "pre-freighter vs post-freighter",
+  "leftStage": "pre-freighter",
+  "rightStage": "post-freighter",
+  "feeMatch": true,
+  "sequenceMatch": true,
+  "sorobanDataMatch": true,
+  "authCountMatch": true,
+  "unsignedAuthLeft": [],
+  "unsignedAuthRight": [],
+  "problems": []
+}
+18:21:06
+info
+[Soroban] post-sign integrity check
+{
+  "preparedBodyHash": "f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61",
+  "signedBodyHash": "f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61",
+  "bodyHashOk": true
+}
+18:21:06
+success
+Freighter signed — submitting immediately
+{
+  "fee": "998035",
+  "attempt": 0
+}
+18:21:06
+info
+[Soroban] tx snapshot: pre-sendTransaction
+{
+  "stage": "pre-sendTransaction",
+  "attempt": 0,
+  "source": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "sequence": "14582895733637126",
+  "fee": "998035",
+  "timeboundsMin": {
+    "_value": "0"
+  },
+  "timeboundsMax": {
+    "_value": "1782996690"
+  },
+  "timeboundsExpired": false,
+  "secondsUntilMaxTime": 24,
+  "extSwitch": 1,
+  "hasSorobanExt": true,
+  "resourceFee": "997935",
+  "feeMinusNetworkBase": 997935,
+  "feeEquationOk": true,
+  "feeEquationExpected": "998035",
+  "instructions": 391478432,
+  "readBytes": 116,
+  "writeBytes": 648,
+  "footprintReadOnlyCount": 13,
+  "footprintReadWriteCount": 4,
+  "footprintReadOnlyPreview": [
+    "contractData:CA7P26YP… key=scvLedgerKeyContractInstance",
+    "contractData:CBIELTK6… key=scvLedgerKeyContractInstance",
+    "contractData:CBY2Q7HQ… key=scvLedgerKeyContractInstance",
+    "contractData:CCHJN6US… key=scvLedgerKeyContractInstance",
+    "contractData:CCRPHSHY… key=scvLedgerKeyContractInstance",
+    "contractData:CDNKOOSH… key=scvLedgerKeyContractInstance"
+  ],
+  "footprintReadWritePreview": [
+    "trustline",
+    "contractData:CBIELTK6… key=scvVec",
+    "contractData:CCHJN6US… key=scvVec",
+    "contractData:CDNKOOSH… key=scvVec"
+  ],
+  "operationType": "invokeHostFunction",
+  "operationSource": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "authEntryCount": 1,
+  "unsignedAuthForPatient": [],
+  "authEntries": [
+    {
+      "index": 0,
+      "credentialsType": "sorobanCredentialsSourceAccount",
+      "address": null,
+      "signatureType": null,
+      "signatureExpirationLedger": null,
+      "subInvocations": 0
+    }
+  ],
+  "signatureCount": 1,
+  "sorobanDataFingerprint": "8bd5850308dc5ec8",
+  "envelopeFingerprint": "989c51f6f372c2a7",
+  "envelopeXdrByteLength": 122080,
+  "problems": []
+}
+18:21:07
+info
+[Soroban] sendTransaction response
+{
+  "submitAttempt": 0,
+  "status": "PENDING",
+  "hash": "f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61"
+}
+18:21:10
+info
+[Soroban] horizon poll final
+{
+  "hash": "f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61",
+  "status": "SUCCESS",
+  "submitAttempt": 0
+}
+18:21:10
+info
+Transaction broadcast
+{
+  "hash": "f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61"
+}
+18:21:10
+success
+Transaction confirmed on ledger
+tx f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61
+{
+  "status": "SUCCESS"
+}
+18:21:10
+info
+Fetching USDC balance (after)…
+18:21:11
+success
+Payout received
+{
+  "usdc": "$0.80",
+  "balanceBefore": "$2.40",
+  "balanceAfter": "$3.20"
+}
+18:21:11
+info
+Marking Supabase delivery as claimed…
+{
+  "deliveryId": "0bd66214-8550-428d-b256-5b5ccb63bee4"
+}
+18:21:11
+success
+Submit claim completed successfully
+18:21:11
+success
+Deductible accumulator updated
+{
+  "previous_met_cents": 80300,
+  "new_met_cents": 80400
+}
+18:21:11
+success
+Inbox claim marked submitted
+{
+  "claimId": "0x19d79248f9beaf65d7138db9186e757bb26381a1fb84e4b055d0ae1e32714aa0"
+}
+18:21:11
+success
+Claim history saved
+{
+  "nullifier": "0x181a3bb7960b7b4cb856b4548ae6206394bc7704c44e1a142803023d37c34eb9",
+  "submittedAt": "2026-07-02T12:51:11.255Z",
+  "txHash": "f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61",
+  "claimId": "0x19d79248f9beaf65d7138db9186e757bb26381a1fb84e4b055d0ae1e32714aa0"
+}
+18:21:11
+success
+Supabase delivery marked claimed

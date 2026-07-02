@@ -1,0 +1,82 @@
+18:12:04
+info
+Create claim started
+{
+  "patientAddress": "GBMXFHN5WYWISOYCMIRSAAP7XZWW7OZT5QUELVI56YCTHZUIANTJL2KC",
+  "icdCode": "J18.9",
+  "visitDate": "20260702",
+  "amount": "1",
+  "supabaseEnabled": true,
+  "insurerViewConfigured": true
+}
+18:12:04
+info
+Connecting provider Freighter wallet…
+18:12:04
+success
+Provider wallet connected
+{
+  "doctorAddress": "GA2HENU4XKUUKYJRL6B3PNX7CB2WYO3F5JXLQZNBQV2VLZ27KB63L3PV"
+}
+18:12:04
+success
+ASP credential loaded
+{
+  "license_id": "MD-001",
+  "specialty": "PULM"
+}
+18:12:04
+info
+Resolving patient encryption key…
+18:12:04
+success
+Patient box public key resolved
+{
+  "key_preview": "311GxMjuKvVn…"
+}
+18:12:04
+info
+Requesting Freighter message signature for claim attestation…
+18:12:06
+success
+Doctor attestation signed
+{
+  "signature_preview": "dV2DNaJFT/Qv5r7t…"
+}
+18:12:06
+info
+Encrypting claim token for patient (NaCl box)…
+18:12:06
+success
+Insurer view-key envelope attached (selective disclosure)
+{
+  "insurer_fund": "GBEQTRDIJYZPZG6OUIILUE5Z57RLMAWDF63BDAXENFD3CHP2XU2EYC7A"
+}
+18:12:06
+success
+Claim ciphertext sealed
+{
+  "content_address": "zklaim://sha256/bb4d317627e34922fbc947975fa67b4d274269cdc71cf2d7c23bea195b4de5a6",
+  "ciphertext_bytes": 840
+}
+18:12:06
+success
+Deep link generated
+{
+  "deepLink_preview": "https://zklaim-app-lilac.vercel.app/?claim=eyJ2Z…"
+}
+18:12:06
+info
+Inserting encrypted delivery into Supabase inbox…
+18:12:07
+success
+Supabase claim_deliveries row inserted
+18:12:07
+success
+Claim hash computed (links ZK circuits)
+{
+  "claim_hash": "98ca1c1371ddfb17681844a2cee00178e37040c58a6bacefbbb30191d554308"
+}
+18:12:07
+success
+Provider local history updated

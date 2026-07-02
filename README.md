@@ -12,75 +12,128 @@ Private medical claim settlement on Stellar via Noir UltraHonk proofs, Authorize
 
 | Resource | Link |
 |----------|------|
+| GitHub repository | [Marshal-AM/zklaim](https://github.com/Marshal-AM/zklaim) |
 | Demo video | [YouTube](https://www.youtube.com/watch?v=6MO-IkHvOYw) |
 | Pitch deck | [Canva](https://canva.link/mv6ah09yyudjjpj) |
 | Live app | [zklaim-app-lilac.vercel.app](https://zklaim-app-lilac.vercel.app/) |
+| **Successful `submit_claim` tx** | [Stellar Expert → `f4600e4a…246c61`](https://stellar.expert/explorer/testnet/tx/f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61) |
+| Provider create-claim log | [logs/create_claim.log](https://github.com/Marshal-AM/zklaim/blob/main/logs/create_claim.log) |
+| Patient submit-claim log | [logs/submit_claim.log](https://github.com/Marshal-AM/zklaim/blob/main/logs/submit_claim.log) |
+
+### Demo run logs (what they prove)
+
+These are **exported activity logs** from the live app UI (same format as the patient/provider Activity log panels). They document a full provider → patient → on-chain settlement run on testnet.
+
+#### Provider: [create_claim.log](https://github.com/Marshal-AM/zklaim/blob/main/logs/create_claim.log)
+
+Captured from [NewClaimForm.tsx](https://github.com/Marshal-AM/zklaim/blob/main/app/src/provider/NewClaimForm.tsx) when a doctor creates a **J18.9 / $1.00** claim for patient `GBMX…L2KC`.
+
+| Phase | Log lines | Code | Meaning |
+|-------|-----------|------|---------|
+| Wallet + ASP | `Provider wallet connected`, `ASP credential loaded` | [`enroll_doctor()`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/asp_membership/src/lib.rs#L43) | Doctor Freighter signs; license **MD-001** maps to an ASP tree leaf |
+| Attestation | `Doctor attestation signed` | [claimToken.ts](https://github.com/Marshal-AM/zklaim/blob/main/app/src/lib/claimToken.ts) | Message signature binds doctor to this visit |
+| Encryption | `Claim ciphertext sealed`, `content_address` | [claimToken.ts](https://github.com/Marshal-AM/zklaim/blob/main/app/src/lib/claimToken.ts) | NaCl box to patient; ICD/amount never stored plaintext server-side |
+| Delivery | `Supabase claim_deliveries row inserted`, `Deep link generated` | [claimDelivery.ts](https://github.com/Marshal-AM/zklaim/blob/main/app/src/lib/claimDelivery.ts) | Optional inbox + deep link to the [live app](https://zklaim-app-lilac.vercel.app/) |
+| Circuit anchor | `claim_hash` `98ca1c13…` | [`computeClaimHash()`](https://github.com/Marshal-AM/zklaim/blob/main/scripts/lib/nullifier.ts#L29) | Same `claim_hash` later binds all four ZK proofs |
+
+#### Patient: [submit_claim.log](https://github.com/Marshal-AM/zklaim/blob/main/logs/submit_claim.log)
+
+Captured from [SubmitClaimFlow.tsx](https://github.com/Marshal-AM/zklaim/blob/main/app/src/patient/SubmitClaimFlow.tsx#L140) for claim `0x19d79248…714aa0` — a **second claim** on the same wallet (accumulator chaining).
+
+| Phase | Log lines | Code | Meaning |
+|-------|-----------|------|---------|
+| Preflight | `Tree alignment verified`, `Accumulator continuity OK` | [treeChainAlignment.ts](https://github.com/Marshal-AM/zklaim/blob/main/app/src/lib/treeChainAlignment.ts), [accumulatorAlignment.ts](https://github.com/Marshal-AM/zklaim/blob/main/app/src/lib/accumulatorAlignment.ts) | Off-chain trees match on-chain roots; `prev_accumulator_commit` matches [`deductible_tracker`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/deductible_tracker/src/lib.rs#L53) |
+| ZK proofs | Four `Circuit proved:` entries (14,592 B each) | [proof_gen/index.ts](https://github.com/Marshal-AM/zklaim/blob/main/client/proof_gen/index.ts#L144), [circuits.ts](https://github.com/Marshal-AM/zklaim/blob/main/client/proof_gen/circuits.ts#L54) | Parallel workers prove circuits 0–2, then circuit 3; shared `claim_hash` `0x18a4968e…` |
+| Fraud | `fraud_path_depth: 16` | [fraud.ts](https://github.com/Marshal-AM/zklaim/blob/main/client/proof_gen/fraud.ts#L98), [`verify_non_membership()`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/asp_nonmembership/src/lib.rs#L83) | Sparse Merkle non-membership — not a ZK proof |
+| Soroban | `Freighter signed`, `sendTransaction response` `PENDING` | [sorobanWallet.ts](https://github.com/Marshal-AM/zklaim/blob/main/app/src/lib/sorobanWallet.ts#L238), [submit.ts](https://github.com/Marshal-AM/zklaim/blob/main/client/proof_gen/stellar/submit.ts#L53) | Fresh simulate → sign → immediate send |
+| **Settlement** | `Transaction confirmed on ledger` **`f4600e4a…246c61`** | [`submit_claim()`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) | [On-chain tx](https://stellar.expert/explorer/testnet/tx/f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61) — nullifier spent, accumulator updated, **+$0.80 USDC** (20% coinsurance; deductible not yet met) |
+| Post-settle | `nullifier` `0x181a3bb7…`, `new_met_cents: 80400` | [`compute_payout()`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/escrow.rs#L22) | Payout formula applied; local identity accumulator synced |
 
 ---
 
 ## Deployed Contracts (Stellar Testnet)
 
-All on-chain logic lives in **seven Soroban smart contracts** . Each row links to [Stellar Expert](https://stellar.expert/explorer/testnet) for live contract inspection.
+All on-chain logic lives in **seven Soroban smart contracts**. Each row links to [Stellar Expert](https://stellar.expert/explorer/testnet) and the primary Rust entrypoint in [github.com/Marshal-AM/zklaim](https://github.com/Marshal-AM/zklaim).
 
-| Contract | Role | Circuit ID | Testnet Contract ID | Explorer |
-|----------|------|:----------:|---------------------|----------|
-| [`ultrahonk_verifier`](https://stellar.expert/explorer/testnet/contract/CBY2Q7HQZG2KDCZCCMTDP6BVGAUNV26U5RNKT2YEZDN6XS7Q7MHTVOEB) | On-chain UltraHonk proof verification (BN254 pairing) | — (verifies 0–4) | `CBY2Q7HQZG2KDCZCCMTDP6BVGAUNV26U5RNKT2YEZDN6XS7Q7MHTVOEB` | [View →](https://stellar.expert/explorer/testnet/contract/CBY2Q7HQZG2KDCZCCMTDP6BVGAUNV26U5RNKT2YEZDN6XS7Q7MHTVOEB) |
-| [`asp_membership`](https://stellar.expert/explorer/testnet/contract/CA7P26YPWBCJ475VNFJXR5Z24GZIY5AKAC62DDCNN4FCMH3ZAIA6XR4P) | Licensed physician ASP Merkle tree (depth 10) | — | `CA7P26YPWBCJ475VNFJXR5Z24GZIY5AKAC62DDCNN4FCMH3ZAIA6XR4P` | [View →](https://stellar.expert/explorer/testnet/contract/CA7P26YPWBCJ475VNFJXR5Z24GZIY5AKAC62DDCNN4FCMH3ZAIA6XR4P) |
-| [`asp_nonmembership`](https://stellar.expert/explorer/testnet/contract/CCRPHSHYQWRZAVLARMWRKSMNK7KCQU7MQXG2O4EFTNRZT7S6NE6GWWOG) | Fraud billing-pattern sparse Merkle blacklist (depth 16) | — | `CCRPHSHYQWRZAVLARMWRKSMNK7KCQU7MQXG2O4EFTNRZT7S6NE6GWWOG` | [View →](https://stellar.expert/explorer/testnet/contract/CCRPHSHYQWRZAVLARMWRKSMNK7KCQU7MQXG2O4EFTNRZT7S6NE6GWWOG) |
-| [`policy_registry`](https://stellar.expert/explorer/testnet/contract/CDWPICFLLI2HQSO4X4UYZT567J4G43IQPKAK6E5RDZH6C2GFQYI7OJCX) | Per-insurer coverage roots, amount bounds, expiry | — | `CDWPICFLLI2HQSO4X4UYZT567J4G43IQPKAK6E5RDZH6C2GFQYI7OJCX` | [View →](https://stellar.expert/explorer/testnet/contract/CDWPICFLLI2HQSO4X4UYZT567J4G43IQPKAK6E5RDZH6C2GFQYI7OJCX) |
-| [`deductible_tracker`](https://stellar.expert/explorer/testnet/contract/CCHJN6US4QVRO3TOGDVFHQ3FSE7IVMDYCR553WVQZW36QCK43Z6RZ5YP) | Per-patient private deductible accumulator state | 3 | `CCHJN6US4QVRO3TOGDVFHQ3FSE7IVMDYCR553WVQZW36QCK43Z6RZ5YP` | [View →](https://stellar.expert/explorer/testnet/contract/CCHJN6US4QVRO3TOGDVFHQ3FSE7IVMDYCR553WVQZW36QCK43Z6RZ5YP) |
-| [`claim_escrow`](https://stellar.expert/explorer/testnet/contract/CDNKOOSHNSFTCLFIISCTENSNCHEPL5CUCNS7WTJM7TAEOBCQCJYI4IAI) | Settlement orchestrator — proofs, fraud, payout, nullifiers | 0, 1, 2 (inline) + 3 (via tracker) | `CDNKOOSHNSFTCLFIISCTENSNCHEPL5CUCNS7WTJM7TAEOBCQCJYI4IAI` | [View →](https://stellar.expert/explorer/testnet/contract/CDNKOOSHNSFTCLFIISCTENSNCHEPL5CUCNS7WTJM7TAEOBCQCJYI4IAI) |
-| [`passport_registry`](https://stellar.expert/explorer/testnet/contract/CAFCAEWSKS5JC7HXNOEBVDV5IBNCO4QRIAPO53XQCEYZ4XPZCPMX3QAD) | Per-patient claim passport + ZK credential issuance | 4 | `CAFCAEWSKS5JC7HXNOEBVDV5IBNCO4QRIAPO53XQCEYZ4XPZCPMX3QAD` | [View →](https://stellar.expert/explorer/testnet/contract/CAFCAEWSKS5JC7HXNOEBVDV5IBNCO4QRIAPO53XQCEYZ4XPZCPMX3QAD) |
-| Circle USDC SAC | Settlement token (7-decimal Soroban asset) | — | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` | [View →](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA) |
+| Contract | Role | Circuit ID | Testnet Contract ID | Explorer | Source (Rust) |
+|----------|------|:----------:|---------------------|----------|---------------|
+| [`ultrahonk_verifier`](https://stellar.expert/explorer/testnet/contract/CBY2Q7HQZG2KDCZCCMTDP6BVGAUNV26U5RNKT2YEZDN6XS7Q7MHTVOEB) | On-chain UltraHonk proof verification (BN254 pairing) | — (verifies 0–4) | `CBY2Q7HQZG2KDCZCCMTDP6BVGAUNV26U5RNKT2YEZDN6XS7Q7MHTVOEB` | [View →](https://stellar.expert/explorer/testnet/contract/CBY2Q7HQZG2KDCZCCMTDP6BVGAUNV26U5RNKT2YEZDN6XS7Q7MHTVOEB) | [`verify()`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/ultrahonk_verifier/src/lib.rs#L57) |
+| [`asp_membership`](https://stellar.expert/explorer/testnet/contract/CA7P26YPWBCJ475VNFJXR5Z24GZIY5AKAC62DDCNN4FCMH3ZAIA6XR4P) | Licensed physician ASP Merkle tree (depth 10) | — | `CA7P26YPWBCJ475VNFJXR5Z24GZIY5AKAC62DDCNN4FCMH3ZAIA6XR4P` | [View →](https://stellar.expert/explorer/testnet/contract/CA7P26YPWBCJ475VNFJXR5Z24GZIY5AKAC62DDCNN4FCMH3ZAIA6XR4P) | [`enroll_doctor()`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/asp_membership/src/lib.rs#L43) |
+| [`asp_nonmembership`](https://stellar.expert/explorer/testnet/contract/CCRPHSHYQWRZAVLARMWRKSMNK7KCQU7MQXG2O4EFTNRZT7S6NE6GWWOG) | Fraud billing-pattern sparse Merkle blacklist (depth 16) | — | `CCRPHSHYQWRZAVLARMWRKSMNK7KCQU7MQXG2O4EFTNRZT7S6NE6GWWOG` | [View →](https://stellar.expert/explorer/testnet/contract/CCRPHSHYQWRZAVLARMWRKSMNK7KCQU7MQXG2O4EFTNRZT7S6NE6GWWOG) | [`verify_non_membership()`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/asp_nonmembership/src/lib.rs#L83) |
+| [`policy_registry`](https://stellar.expert/explorer/testnet/contract/CDWPICFLLI2HQSO4X4UYZT567J4G43IQPKAK6E5RDZH6C2GFQYI7OJCX) | Per-insurer coverage roots, amount bounds, expiry | — | `CDWPICFLLI2HQSO4X4UYZT567J4G43IQPKAK6E5RDZH6C2GFQYI7OJCX` | [View →](https://stellar.expert/explorer/testnet/contract/CDWPICFLLI2HQSO4X4UYZT567J4G43IQPKAK6E5RDZH6C2GFQYI7OJCX) | [`register_policy()`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/policy_registry/src/lib.rs#L18) |
+| [`deductible_tracker`](https://stellar.expert/explorer/testnet/contract/CCHJN6US4QVRO3TOGDVFHQ3FSE7IVMDYCR553WVQZW36QCK43Z6RZ5YP) | Per-patient private deductible accumulator state | 3 | `CCHJN6US4QVRO3TOGDVFHQ3FSE7IVMDYCR553WVQZW36QCK43Z6RZ5YP` | [View →](https://stellar.expert/explorer/testnet/contract/CCHJN6US4QVRO3TOGDVFHQ3FSE7IVMDYCR553WVQZW36QCK43Z6RZ5YP) | [`update_accumulator()`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/deductible_tracker/src/lib.rs#L53) |
+| [`claim_escrow`](https://stellar.expert/explorer/testnet/contract/CDNKOOSHNSFTCLFIISCTENSNCHEPL5CUCNS7WTJM7TAEOBCQCJYI4IAI) | Settlement orchestrator — proofs, fraud, payout, nullifiers | 0, 1, 2 (inline) + 3 (via tracker) | `CDNKOOSHNSFTCLFIISCTENSNCHEPL5CUCNS7WTJM7TAEOBCQCJYI4IAI` | [View →](https://stellar.expert/explorer/testnet/contract/CDNKOOSHNSFTCLFIISCTENSNCHEPL5CUCNS7WTJM7TAEOBCQCJYI4IAI) | [`submit_claim()`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
+| [`passport_registry`](https://stellar.expert/explorer/testnet/contract/CAFCAEWSKS5JC7HXNOEBVDV5IBNCO4QRIAPO53XQCEYZ4XPZCPMX3QAD) | Per-patient claim passport + ZK credential issuance | 4 | `CAFCAEWSKS5JC7HXNOEBVDV5IBNCO4QRIAPO53XQCEYZ4XPZCPMX3QAD` | [View →](https://stellar.expert/explorer/testnet/contract/CAFCAEWSKS5JC7HXNOEBVDV5IBNCO4QRIAPO53XQCEYZ4XPZCPMX3QAD) | [`verify_credential()`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120) |
+| Circle USDC SAC | Settlement token (7-decimal Soroban asset) | — | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` | [View →](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA) | Circle testnet SAC (external) |
 
 **Classic USDC issuer (testnet):** `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`
 
 **Insurer / deployer (testnet):** `GBEQTRDIJYZPZG6OUIILUE5Z57RLMAWDF63BDAXENFD3CHP2XU2EYC7A` (`INSURER_FUND_ADDRESS` / `DEPLOYER_PUBLIC_KEY`)
 
+**Transaction explorer pattern:** `https://stellar.expert/explorer/testnet/tx/{hash}` — demo settlement: [`f4600e4a…246c61`](https://stellar.expert/explorer/testnet/tx/f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61)
+
+---
+
+## Noir Circuits (ZK Layer)
+
+| Circuit | ID | Proof bytes | Noir source | On-chain consumer |
+|---------|---:|------------:|-------------|-------------------|
+| `policy_validity` | 0 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/policy_validity/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
+| `amount_range` | 1 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/amount_range/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
+| `doctor_attestation` | 2 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/doctor_attestation/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
+| `deductible_accumulator` | 3 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/deductible_accumulator/src/main.nr#L1) | [`deductible_tracker.update_accumulator`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/deductible_tracker/src/lib.rs#L53) |
+| `category_nonmembership` | 4 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/category_nonmembership/src/main.nr#L6) | [`passport_registry.verify_credential`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120) |
+| `poseidon_reference` | — | — | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/poseidon_reference/src/main.nr#L1) | Alignment test only ([poseidon2.ts](https://github.com/Marshal-AM/zklaim/blob/main/scripts/lib/poseidon2.ts#L1)) |
+
+Circuit IDs: [circuit_ids.rs](https://github.com/Marshal-AM/zklaim/blob/main/contracts/common/src/circuit_ids.rs#L1) · Client proving: [circuits.ts](https://github.com/Marshal-AM/zklaim/blob/main/client/proof_gen/circuits.ts#L54) · WASM artifacts: [app/public/wasm/](https://github.com/Marshal-AM/zklaim/tree/main/app/public/wasm)
+
 ---
 
 ## Table of Contents
 
-1. [Introduction](#introduction)
-   - [What ZKlaim Is](#what-zklaim-is)
-   - [The Privacy Boundary](#the-privacy-boundary)
-   - [Technical Innovations](#technical-innovations)
-2. [The Problem](#the-problem)
-   - [Medical Privacy Is Broken Everywhere](#medical-privacy-is-broken-everywhere)
-   - [Why Existing Approaches Fail](#why-existing-approaches-fail)
-   - [The Gap ZKlaim Fills](#the-gap-zklaim-fills)
-3. [The Solution](#the-solution)
-   - [Patient Experience](#patient-experience)
-   - [Cryptographic Guarantees](#cryptographic-guarantees)
-   - [What ZKlaim Does Not Do](#what-zklaim-does-not-do)
-   - [Why Stellar Is Load-Bearing](#why-stellar-is-load-bearing)
-   - [Nullifiers and Double-Spend Prevention](#nullifiers-and-double-spend-prevention)
-4. [Architecture](#architecture)
-   - [Layered System Design](#layered-system-design)
-   - [End-to-End Claim Sequence](#end-to-end-claim-sequence)
-   - [Proof Generation Pipeline](#proof-generation-pipeline)
-   - [Public Input Chaining](#public-input-chaining)
-   - [Merkle Tree Taxonomy](#merkle-tree-taxonomy)
-   - [Coordination Layer](#coordination-layer)
-5. [Circuit Explanation](#circuit-explanation)
-   - [Cryptographic Primitives](#cryptographic-primitives)
-   - [Circuit Registry](#circuit-registry)
-   - [policy_validity (Circuit 0)](#policy_validity-circuit-0)
-   - [amount_range (Circuit 1)](#amount_range-circuit-1)
-   - [doctor_attestation (Circuit 2)](#doctor_attestation-circuit-2)
-   - [deductible_accumulator (Circuit 3)](#deductible_accumulator-circuit-3)
-   - [category_nonmembership (Circuit 4)](#category_nonmembership-circuit-4)
-   - [Circuit Composition](#circuit-composition)
-6. [Contract Explanation](#contract-explanation)
-   - [ultrahonk_verifier](#ultrahonk_verifier)
-   - [asp_membership](#asp_membership)
-   - [asp_nonmembership](#asp_nonmembership)
-   - [policy_registry](#policy_registry)
-   - [deductible_tracker](#deductible_tracker)
-   - [claim_escrow](#claim_escrow)
-   - [passport_registry](#passport_registry)
-   - [ClaimPackage Wire Format](#claimpackage-wire-format)
-7. [Conclusion](#conclusion)
+- [Demo run logs](https://github.com/Marshal-AM/zklaim/blob/main/README.md#demo-run-logs-what-they-prove)
+- [Deployed contracts](https://github.com/Marshal-AM/zklaim/blob/main/README.md#deployed-contracts-stellar-testnet)
+- [Noir circuits](https://github.com/Marshal-AM/zklaim/blob/main/README.md#noir-circuits-zk-layer)
+1. [Introduction](https://github.com/Marshal-AM/zklaim/blob/main/README.md#introduction)
+   - [What ZKlaim Is](https://github.com/Marshal-AM/zklaim/blob/main/README.md#what-zklaim-is)
+   - [The Privacy Boundary](https://github.com/Marshal-AM/zklaim/blob/main/README.md#the-privacy-boundary)
+   - [Technical Innovations](https://github.com/Marshal-AM/zklaim/blob/main/README.md#technical-innovations)
+2. [The Problem](https://github.com/Marshal-AM/zklaim/blob/main/README.md#the-problem)
+   - [Medical Privacy Is Broken Everywhere](https://github.com/Marshal-AM/zklaim/blob/main/README.md#medical-privacy-is-broken-everywhere)
+   - [Why Existing Approaches Fail](https://github.com/Marshal-AM/zklaim/blob/main/README.md#why-existing-approaches-fail)
+   - [The Gap ZKlaim Fills](https://github.com/Marshal-AM/zklaim/blob/main/README.md#the-gap-zklaim-fills)
+3. [The Solution](https://github.com/Marshal-AM/zklaim/blob/main/README.md#the-solution)
+   - [Patient Experience](https://github.com/Marshal-AM/zklaim/blob/main/README.md#patient-experience)
+   - [Cryptographic Guarantees](https://github.com/Marshal-AM/zklaim/blob/main/README.md#cryptographic-guarantees)
+   - [What ZKlaim Does Not Do](https://github.com/Marshal-AM/zklaim/blob/main/README.md#what-zklaim-does-not-do)
+   - [Why Stellar Is Load-Bearing](https://github.com/Marshal-AM/zklaim/blob/main/README.md#why-stellar-is-load-bearing)
+   - [Nullifiers and Double-Spend Prevention](https://github.com/Marshal-AM/zklaim/blob/main/README.md#nullifiers-and-double-spend-prevention)
+4. [Architecture](https://github.com/Marshal-AM/zklaim/blob/main/README.md#architecture)
+   - [Layered System Design](https://github.com/Marshal-AM/zklaim/blob/main/README.md#layered-system-design)
+   - [End-to-End Claim Sequence](https://github.com/Marshal-AM/zklaim/blob/main/README.md#end-to-end-claim-sequence)
+   - [Proof Generation Pipeline](https://github.com/Marshal-AM/zklaim/blob/main/README.md#proof-generation-pipeline)
+   - [Public Input Chaining](https://github.com/Marshal-AM/zklaim/blob/main/README.md#public-input-chaining)
+   - [Merkle Tree Taxonomy](https://github.com/Marshal-AM/zklaim/blob/main/README.md#merkle-tree-taxonomy)
+   - [Coordination Layer](https://github.com/Marshal-AM/zklaim/blob/main/README.md#coordination-layer)
+5. [Circuit Explanation](https://github.com/Marshal-AM/zklaim/blob/main/README.md#circuit-explanation)
+   - [Cryptographic Primitives](https://github.com/Marshal-AM/zklaim/blob/main/README.md#cryptographic-primitives)
+   - [Circuit Registry](https://github.com/Marshal-AM/zklaim/blob/main/README.md#circuit-registry)
+   - [policy_validity (Circuit 0)](https://github.com/Marshal-AM/zklaim/blob/main/README.md#policy_validity-circuit-0)
+   - [amount_range (Circuit 1)](https://github.com/Marshal-AM/zklaim/blob/main/README.md#amount_range-circuit-1)
+   - [doctor_attestation (Circuit 2)](https://github.com/Marshal-AM/zklaim/blob/main/README.md#doctor_attestation-circuit-2)
+   - [deductible_accumulator (Circuit 3)](https://github.com/Marshal-AM/zklaim/blob/main/README.md#deductible_accumulator-circuit-3)
+   - [category_nonmembership (Circuit 4)](https://github.com/Marshal-AM/zklaim/blob/main/README.md#category_nonmembership-circuit-4)
+   - [Circuit Composition](https://github.com/Marshal-AM/zklaim/blob/main/README.md#circuit-composition)
+6. [Contract Explanation](https://github.com/Marshal-AM/zklaim/blob/main/README.md#contract-explanation)
+   - [ultrahonk_verifier](https://github.com/Marshal-AM/zklaim/blob/main/README.md#ultrahonk_verifier)
+   - [asp_membership](https://github.com/Marshal-AM/zklaim/blob/main/README.md#asp_membership)
+   - [asp_nonmembership](https://github.com/Marshal-AM/zklaim/blob/main/README.md#asp_nonmembership)
+   - [policy_registry](https://github.com/Marshal-AM/zklaim/blob/main/README.md#policy_registry)
+   - [deductible_tracker](https://github.com/Marshal-AM/zklaim/blob/main/README.md#deductible_tracker)
+   - [claim_escrow](https://github.com/Marshal-AM/zklaim/blob/main/README.md#claim_escrow)
+   - [passport_registry](https://github.com/Marshal-AM/zklaim/blob/main/README.md#passport_registry)
+   - [ClaimPackage Wire Format](https://github.com/Marshal-AM/zklaim/blob/main/README.md#claimpackage-wire-format)
+7. [Conclusion](https://github.com/Marshal-AM/zklaim/blob/main/README.md#conclusion)
 
 ---
 
@@ -115,17 +168,17 @@ ZKlaim's threat model distinguishes sharply between what the ledger must see to 
 
 | Data element | On-chain visibility | Where it lives |
 |--------------|--------------------:|----------------|
-| ICD-10 diagnosis code | **Never** | ZK witness only (`policy_validity` circuit) |
-| Exact claim amount (cents) | **Never** | Pedersen commitment + ZK witness (`amount_range`) |
-| Physician identity / license | **Never** | ASP membership witness (`doctor_attestation`) |
-| Prior claim amounts (history) | **Never** | Accumulator secret in witness (`deductible_accumulator`) |
-| `claim_hash` | Public (field element) | Binds all four claim circuits to one visit |
+| ICD-10 diagnosis code | **Never** | ZK witness only ([`policy_validity`](https://github.com/Marshal-AM/zklaim/blob/main/circuits/policy_validity/src/main.nr#L1)) |
+| Exact claim amount (cents) | **Never** | Pedersen commitment + ZK witness ([`amount_range`](https://github.com/Marshal-AM/zklaim/blob/main/circuits/amount_range/src/main.nr#L1)) |
+| Physician identity / license | **Never** | ASP membership witness ([`doctor_attestation`](https://github.com/Marshal-AM/zklaim/blob/main/circuits/doctor_attestation/src/main.nr#L1)) |
+| Prior claim amounts (history) | **Never** | Accumulator secret in witness ([`deductible_accumulator`](https://github.com/Marshal-AM/zklaim/blob/main/circuits/deductible_accumulator/src/main.nr#L1)) |
+| `claim_hash` | Public (field element) | Binds all four claim circuits ([`computeClaimHash`](https://github.com/Marshal-AM/zklaim/blob/main/scripts/lib/nullifier.ts#L29)) |
 | `policy_commitment` | Public | Proves coverage without revealing ICD code |
 | `amount_commitment` | Public | Hides amount; proves range only |
 | `doctor_commitment` | Public | Hides identity; proves ASP membership |
 | `attestation_hash` | Public | Binds doctor signature to this claim |
 | Coverage / ASP / fraud Merkle roots | Public | Registry state anchors |
-| Nullifier | Public | Prevents double-claiming same visit |
+| Nullifier | Public | Prevents double-claiming ([`claim_escrow` storage](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50)) |
 | `billing_pattern_hash` | Public | Coarse fraud fingerprint (category + bucket, not diagnosis) |
 | `deductible_met` flag | Public (1 byte in field) | Triggers payout formula change |
 | Accumulator commitments | Public | Running state — not individual amounts |
@@ -274,11 +327,11 @@ There is no system on any blockchain that can simultaneously prove:
 
 From the patient's perspective, ZKlaim is three steps:
 
-1. **Doctor generates claim** — The treating physician enters ICD-10 code, visit date, and billed amount in the provider portal. They sign an attestation with their Freighter wallet (registered in the physician ASP tree). An encrypted claim token is delivered to the patient (Supabase inbox, QR code, or deep link).
+1. **Doctor generates claim** — The treating physician enters ICD-10 code, visit date, and billed amount in the [provider portal](https://github.com/Marshal-AM/zklaim/blob/main/app/src/provider/NewClaimForm.tsx). See [create_claim.log](https://github.com/Marshal-AM/zklaim/blob/main/logs/create_claim.log). They sign an attestation with their Freighter wallet (registered in the physician ASP tree). An encrypted claim token is delivered to the patient (Supabase inbox, QR code, or deep link).
 
-2. **Patient submits claim** — The patient connects Freighter, decrypts the claim locally, and presses Submit. The browser generates four ZK proofs using Noir circuits compiled to WebAssembly and Barretenberg `bb.js` workers. Diagnosis, amount, and doctor identity **never leave the device**.
+2. **Patient submits claim** — The patient connects Freighter, decrypts the claim locally, and presses Submit in [SubmitClaimFlow.tsx](https://github.com/Marshal-AM/zklaim/blob/main/app/src/patient/SubmitClaimFlow.tsx#L140). See [submit_claim.log](https://github.com/Marshal-AM/zklaim/blob/main/logs/submit_claim.log). The browser generates four ZK proofs using Noir circuits compiled to WebAssembly and Barretenberg `bb.js` workers. Diagnosis, amount, and doctor identity **never leave the device**.
 
-3. **USDC settles** — A single Soroban transaction calls `claim_escrow.submit_claim`. The on-chain record shows: one nullifier, accumulator update, one USDC transfer. No diagnosis. No amount in public inputs beyond the payout. The insurer knows their reserve decreased. That is all.
+3. **USDC settles** — A single Soroban transaction calls [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50). Demo tx: [`f4600e4a…246c61`](https://stellar.expert/explorer/testnet/tx/f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61). The on-chain record shows: one nullifier, accumulator update, one USDC transfer. No diagnosis. No amount in public inputs beyond the payout. The insurer knows their reserve decreased. That is all.
 
 ### Cryptographic Guarantees
 
@@ -305,7 +358,7 @@ ZKlaim is not a project that happens to run on Stellar. It is a project that is 
 
 | Stellar capability | CAP | Role in ZKlaim |
 |---------------------|-----|----------------|
-| `bn254_multi_pairing_check` | CAP-0074 | Final UltraHonk verification step in `ultrahonk_verifier` |
+| `bn254_multi_pairing_check` | CAP-0074 | Final UltraHonk verification step in [`ultrahonk_verifier`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/ultrahonk_verifier/src/lib.rs#L57) |
 | `bn254_g1_add`, `bn254_g1_mul` | CAP-0074 | Verifier inner loops; Pedersen commitment arithmetic |
 | Poseidon2 host function | CAP-0075 | On-chain Merkle roots in ASP, policy, passport, fraud trees |
 | `bn254_msm` | CAP-0080 | Batched commitment verification — accumulator economics |
@@ -325,7 +378,7 @@ Each claim visit is bound to a unique **nullifier** computed client-side:
 nullifier = Poseidon2([policy_id, visit_date, diagnosis_secret, random_nonce], 4)
 ```
 
-The `diagnosis_secret` and `random_nonce` never appear on-chain. The nullifier is stored in `claim_escrow` persistent storage on first successful settlement. A second submission with the same nullifier panics with `"nullifier already spent"`.
+The `diagnosis_secret` and `random_nonce` never appear on-chain ([`computeNullifier`](https://github.com/Marshal-AM/zklaim/blob/main/scripts/lib/nullifier.ts)). The nullifier is stored in `claim_escrow` persistent storage on first successful settlement. A second submission with the same nullifier panics with `"nullifier already spent"`.
 
 The **claim hash** that binds all four ZK circuits is separate:
 
@@ -345,10 +398,10 @@ ZKlaim spans four architectural layers, each with a strict responsibility bounda
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| **ZK circuits** | `circuits/` (Noir) | Define statements to prove; constrain witnesses |
-| **Crypto + trees** | `scripts/lib/`, `client/proof_gen/` | Poseidon2, Pedersen, Merkle builders, proof orchestration |
-| **On-chain contracts** | `contracts/` (Soroban Rust) | Verify proofs, enforce policy, settle USDC, track state |
-| **Application** | `app/` (React + Vite) | Patient, provider, admin, verifier portals; Freighter signing |
+| **ZK circuits** | [circuits/](https://github.com/Marshal-AM/zklaim/blob/main/circuits/#L1) (Noir) | Define statements to prove; constrain witnesses |
+| **Crypto + trees** | [scripts/lib/](https://github.com/Marshal-AM/zklaim/blob/main/scripts/lib/merkle.ts#L1), [client/proof_gen/](https://github.com/Marshal-AM/zklaim/blob/main/client/proof_gen/index.ts#L144) | Poseidon2, Pedersen, Merkle builders, proof orchestration |
+| **On-chain contracts** | [contracts/](https://github.com/Marshal-AM/zklaim/blob/main/contracts/#L1) (Soroban Rust) | Verify proofs, enforce policy, settle USDC, track state |
+| **Application** | [app/](https://github.com/Marshal-AM/zklaim/blob/main/app/src/patient/SubmitClaimFlow.tsx#L140) (React + Vite) | Patient, provider, admin, verifier portals; Freighter signing |
 
 Data flows **down** at claim time (encrypted claim → local prove → Soroban submit) and **sideways** at setup time (tree artifacts, VK initialization, policy registration).
 
@@ -389,7 +442,7 @@ sequenceDiagram
 
 ### Proof Generation Pipeline
 
-The client-side orchestrator in `client/proof_gen/index.ts` implements a deliberate parallelism strategy:
+The client-side orchestrator in [proof_gen/index.ts](https://github.com/Marshal-AM/zklaim/blob/main/client/proof_gen/index.ts#L144) implements a deliberate parallelism strategy:
 
 ```mermaid
 flowchart TD
@@ -413,11 +466,11 @@ flowchart TD
 
 **Non-ZK phase:** Nullifier computation and fraud sparse Merkle non-membership path resolution from `fraud_tree.json` artifacts.
 
-Each circuit proof is **14,592 bytes** (`PROOF_BYTES` in `client/proof_gen/inputs.ts`), generated via `UltraHonkBackend.generateProof(witness, { keccak: true })` to match the on-chain Fiat–Shamir transcript.
+Each circuit proof is **14,592 bytes** (`PROOF_BYTES` in [proof_gen/inputs.ts](https://github.com/Marshal-AM/zklaim/blob/main/client/proof_gen/inputs.ts#L1)), generated via `UltraHonkBackend.generateProof(witness, { keccak: true })` to match the on-chain Fiat–Shamir transcript.
 
 ### Public Input Chaining
 
-Circuit IDs are defined in `contracts/common/src/circuit_ids.rs`:
+Circuit IDs are defined in [src/circuit_ids.rs](https://github.com/Marshal-AM/zklaim/blob/main/contracts/common/src/circuit_ids.rs#L1):
 
 | ID | Name | Public inputs (index → semantic) |
 |----|------|----------------------------------|
@@ -471,7 +524,7 @@ ZKlaim uses **four distinct Merkle constructions**, each tuned to its access pat
 | Fraud blacklist | 16 (sparse) | 65,536 slots | `Poseidon2([pattern, Poseidon2([0x01×32])])` | Prove billing pattern NOT in fraud set |
 | Health passport | 8 | 256 claims/patient | `Poseidon2([nullifier, secret, category, amount_bkt, month], 5)` | Selective disclosure credentials |
 
-**Dense trees (depth 10):** Index bit `i` at level `i` selects left/right sibling. Unfilled slots pad with `ZERO_FIELD`. Implementations aligned across `scripts/lib/merkle.ts`, `circuits/common/src/lib.nr`, and `contracts/common/src/merkle.rs`.
+**Dense trees (depth 10):** Index bit `i` at level `i` selects left/right sibling. Unfilled slots pad with `ZERO_FIELD`. Implementations aligned across [scripts/lib/merkle.ts](https://github.com/Marshal-AM/zklaim/blob/main/scripts/lib/merkle.ts#L1), [circuits/common/src/lib.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/common/src/lib.nr#L1), and [contracts/common/src/merkle.rs](https://github.com/Marshal-AM/zklaim/blob/main/contracts/common/src/merkle.rs#L26).
 
 **Sparse tree (depth 16):** Key → index via last 4 bytes BE of 32-byte pattern hash, masked to `2^16 - 1`. Empty subtrees use precomputed default nodes. Non-membership proofs walk from empty leaf without revealing which patterns exist in the tree.
 
@@ -503,7 +556,7 @@ Where `icd_category` is the first three characters of the ICD code (e.g., `J18` 
 
 ### Coordination Layer
 
-Supabase (optional) stores **only** Stellar addresses, box public keys, and **encrypted** claim tokens. No medical plaintext, no secret keys. Realtime on `claim_deliveries` enables provider-to-patient inbox delivery without QR codes. The ZK security model does not depend on Supabase — it is a UX convenience layer.
+Supabase (optional) stores **only** Stellar addresses, box public keys, and **encrypted** claim tokens ([`claimDelivery.ts`](https://github.com/Marshal-AM/zklaim/blob/main/app/src/lib/claimDelivery.ts)). No medical plaintext, no secret keys. Realtime on `claim_deliveries` enables provider-to-patient inbox delivery without QR codes. The ZK security model does not depend on Supabase — it is a UX convenience layer.
 
 ---
 
@@ -515,7 +568,7 @@ ZKlaim's zero-knowledge layer is implemented in **Noir** (`.nr`), compiled to AC
 
 **Poseidon2 on BN254**
 
-All Merkle trees, nullifiers, claim hashes, policy commitments, and accumulator updates use `std::hash::poseidon2::Poseidon2` in Noir, `@aztec/bb.js` sponge in TypeScript (`scripts/lib/poseidon2.ts`), and Soroban CAP-0075 host functions in contracts (`contracts/common/src/poseidon2.rs`). The `poseidon_reference` circuit exists solely as an alignment gate — if JS and Noir diverge, every proof in the system breaks.
+All Merkle trees, nullifiers, claim hashes, policy commitments, and accumulator updates use `std::hash::poseidon2::Poseidon2` in Noir, `@aztec/bb.js` sponge in TypeScript ([scripts/lib/poseidon2.ts](https://github.com/Marshal-AM/zklaim/blob/main/scripts/lib/poseidon2.ts#L1)), and Soroban CAP-0075 host functions in contracts ([contracts/common/src/poseidon2.rs](https://github.com/Marshal-AM/zklaim/blob/main/contracts/common/src/poseidon2.rs#L1)). The `poseidon_reference` circuit exists solely as an alignment gate — if JS and Noir diverge, every proof in the system breaks.
 
 **Pedersen commitments**
 
@@ -537,25 +590,25 @@ All values live in the BN254 scalar field:
 p = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
 ```
 
-ICD codes map to field elements via `icdToField()` in the client; policy IDs map via `stringToField()`.
+ICD codes map to field elements via `icdToField()` in the client ([lib/poseidon2.ts](https://github.com/Marshal-AM/zklaim/blob/main/scripts/lib/poseidon2.ts#L1)); policy IDs map via `stringToField()`.
 
 ### Circuit Registry
 
-| Circuit | ID | Proof bytes | Used in |
-|---------|---:|------------:|---------|
-| `policy_validity` | 0 | 14,592 | `claim_escrow.submit_claim` |
-| `amount_range` | 1 | 14,592 | `claim_escrow.submit_claim` |
-| `doctor_attestation` | 2 | 14,592 | `claim_escrow.submit_claim` |
-| `deductible_accumulator` | 3 | 14,592 | `deductible_tracker.update_accumulator` |
-| `category_nonmembership` | 4 | 14,592 | `passport_registry.verify_credential` |
+| Circuit | ID | Proof bytes | Noir source | Used in |
+|---------|---:|------------:|-------------|---------|
+| `policy_validity` | 0 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/policy_validity/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
+| `amount_range` | 1 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/amount_range/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
+| `doctor_attestation` | 2 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/doctor_attestation/src/main.nr#L1) | [`claim_escrow.submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) |
+| `deductible_accumulator` | 3 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/deductible_accumulator/src/main.nr#L1) | [`deductible_tracker.update_accumulator`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/deductible_tracker/src/lib.rs#L53) |
+| `category_nonmembership` | 4 | 14,592 | [main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/category_nonmembership/src/main.nr#L6) | [`passport_registry.verify_credential`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120) |
 
-Fraud ASP non-membership is **not** a ZK proof — it is verified via plain sparse Merkle path checking in `asp_nonmembership.verify_non_membership`.
+Fraud ASP non-membership is **not** a ZK proof — it is verified via plain sparse Merkle path checking in [`asp_nonmembership.verify_non_membership`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/asp_nonmembership/src/lib.rs#L83).
 
 ---
 
 ### policy_validity (Circuit 0)
 
-**Source:** `circuits/policy_validity/src/main.nr`
+**Source:** [src/main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/policy_validity/src/main.nr#L1)
 
 **Statement proved:** *"I know an ICD-10 diagnosis code that is a leaf in the insurer's coverage Merkle tree, and I know the policy secret that opens the policy commitment — without revealing the code."*
 
@@ -582,13 +635,13 @@ Fraud ASP non-membership is **not** a ZK proof — it is verified via plain spar
 
 #### On-chain binding
 
-`claim_escrow` verifies circuit 0, then asserts `policy_inputs[0] == policy_registry.get_coverage_root(insurer)`.
+`claim_escrow` verifies circuit 0 ([`submit_claim`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50)), then asserts `policy_inputs[0] == policy_registry.get_coverage_root(insurer)` ([`policy_registry`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/policy_registry/src/lib.rs#L18)).
 
 ---
 
 ### amount_range (Circuit 1)
 
-**Source:** `circuits/amount_range/src/main.nr`
+**Source:** [src/main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/amount_range/src/main.nr#L1)
 
 **Statement proved:** *"I know a raw claim amount in cents that lies within [policy_floor, policy_ceiling], and I know the Pedersen blinding factor that opens the public amount commitment."*
 
@@ -614,13 +667,13 @@ The insurer registers `bounds_hash` on-chain; the patient proves their amount is
 
 #### On-chain binding
 
-`claim_escrow` verifies circuit 1, then asserts `amount_inputs[1] == policy_registry.get_bounds_hash(insurer)`.
+`claim_escrow` verifies circuit 1, then asserts `amount_inputs[1] == policy_registry.get_bounds_hash(insurer)` ([`policy_registry`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/policy_registry/src/lib.rs#L18)).
 
 ---
 
 ### doctor_attestation (Circuit 2)
 
-**Source:** `circuits/doctor_attestation/src/main.nr`
+**Source:** [src/main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/doctor_attestation/src/main.nr#L1)
 
 **Statement proved:** *"I know a doctor secret that is a leaf in the ASP physician Merkle tree, and I know the same secret that produced the attestation hash for this specific claim."*
 
@@ -647,13 +700,13 @@ The provider portal computes `attestation_hash` at claim creation time; the pati
 
 #### On-chain binding
 
-`claim_escrow` verifies circuit 2, then asserts `doctor_inputs[0] == asp_membership.get_root()`.
+`claim_escrow` verifies circuit 2, then asserts `doctor_inputs[0] == asp_membership.get_root()` ([`asp_membership`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/asp_membership/src/lib.rs#L43)).
 
 ---
 
 ### deductible_accumulator (Circuit 3)
 
-**Source:** `circuits/deductible_accumulator/src/main.nr`
+**Source:** [src/main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/deductible_accumulator/src/main.nr#L1)
 
 **Statement proved:** *"The new accumulator commitment correctly extends the previous secret by this claim's amount, the amount commitment matches the amount circuit, and the deductible_met flag truthfully reports whether prev_secret + new_amount ≥ deductible_limit."*
 
@@ -697,7 +750,7 @@ Invoked via cross-contract call from `claim_escrow` to `deductible_tracker.updat
 
 ### category_nonmembership (Circuit 4)
 
-**Source:** `circuits/category_nonmembership/src/main.nr`
+**Source:** [src/main.nr](https://github.com/Marshal-AM/zklaim/blob/main/circuits/category_nonmembership/src/main.nr#L6)
 
 **Statement proved:** *"For every active leaf in my health passport Merkle tree, the ICD letter category is not equal to the excluded category, and the active leaf count matches the on-chain record."*
 
@@ -766,18 +819,18 @@ flowchart TB
   C4 --> Passport[passport_registry]
 ```
 
-**Prover alignment requirement:** Client uses `keccak: true` in `proveCircuit()` (`client/proof_gen/circuits.ts`). On-chain verifier uses Keccak for Fiat–Shamir transcript. Noir `1.0.0-beta.3` + `bb 0.87.0` + `--oracle_hash keccak` must match exactly — any toolchain drift causes verification failure with no on-chain error distinguishable from a fraudulent proof.
+**Prover alignment requirement:** Client uses `keccak: true` in `proveCircuit()` ([client/proof_gen/circuits.ts](https://github.com/Marshal-AM/zklaim/blob/main/client/proof_gen/circuits.ts#L54)). On-chain verifier uses Keccak for Fiat–Shamir transcript. Noir `1.0.0-beta.3` + `bb 0.87.0` + `--oracle_hash keccak` must match exactly — any toolchain drift causes verification failure with no on-chain error distinguishable from a fraudulent proof.
 
 ---
 
 ## Contract Explanation
 
-All on-chain logic is implemented as **Soroban smart contracts** in Rust, compiled to `wasm32v1-none`, and deployed via `stellar-cli`. The workspace (`contracts/Cargo.toml`) uses `soroban-sdk` 26.1.0 and shares cryptography through the `zklaim_common` crate.
+All on-chain logic is implemented as **Soroban smart contracts** in Rust, compiled to `wasm32v1-none`, and deployed via `stellar-cli`. The workspace ([contracts/Cargo.toml](https://github.com/Marshal-AM/zklaim/blob/main/contracts/Cargo.toml#L1)) uses `soroban-sdk` 26.1.0 and shares cryptography through the `zklaim_common` crate.
 
 ### ultrahonk_verifier
 
-**Crate:** `contracts/ultrahonk_verifier/`  
-**WASM:** `ultrahonk_verifier.wasm`  
+**Crate:** [contracts/ultrahonk_verifier/](https://github.com/Marshal-AM/zklaim/blob/main/contracts/ultrahonk_verifier/src/lib.rs#L57)  
+**WASM:** `ultrahonk_verifier.wasm` (built from [src/lib.rs](https://github.com/Marshal-AM/zklaim/blob/main/contracts/ultrahonk_verifier/src/lib.rs#L1))  
 **Role:** On-chain UltraHonk proof verification using Nethermind's `ultrahonk_soroban_verifier` and Stellar BN254 host functions.
 
 #### Storage
@@ -811,7 +864,7 @@ All on-chain logic is implemented as **Soroban smart contracts** in Rust, compil
 
 ### asp_membership
 
-**Crate:** `contracts/asp_membership/`  
+**Crate:** [contracts/asp_membership/](https://github.com/Marshal-AM/zklaim/blob/main/contracts/asp_membership/src/lib.rs#L43)  
 **Role:** Authorized Service Provider tree of licensed physicians.
 
 #### Storage
@@ -848,7 +901,7 @@ Tree uses frontier-append semantics (`tree.rs`) — O(log n) per enrollment with
 
 ### asp_nonmembership
 
-**Crate:** `contracts/asp_nonmembership/`  
+**Crate:** [contracts/asp_nonmembership/](https://github.com/Marshal-AM/zklaim/blob/main/contracts/asp_nonmembership/src/lib.rs#L83)  
 **Role:** Fraud ASP — sparse Merkle tree (depth 16) of known fraudulent billing patterns.
 
 #### Storage
@@ -874,13 +927,13 @@ Tree uses frontier-append semantics (`tree.rs`) — O(log n) per enrollment with
 
 #### Verification algorithm
 
-For a pattern **not** in the tree, verification walks from the empty default leaf at depth 16, combining sibling hashes from the proof path. No ZK proof required — plain hash walk matching `scripts/lib/sparse_merkle.ts`.
+For a pattern **not** in the tree, verification walks from the empty default leaf at depth 16, combining sibling hashes from the proof path. No ZK proof required — plain hash walk matching [scripts/lib/sparse_merkle.ts](https://github.com/Marshal-AM/zklaim/blob/main/scripts/lib/sparse_merkle.ts#L1).
 
 ---
 
 ### policy_registry
 
-**Crate:** `contracts/policy_registry/`  
+**Crate:** [contracts/policy_registry/](https://github.com/Marshal-AM/zklaim/blob/main/contracts/policy_registry/src/lib.rs#L18)  
 **Role:** Per-insurer policy commitments.
 
 #### Storage
@@ -907,7 +960,7 @@ The insurer signs `register_policy` with their own key — on-chain policy bindi
 
 ### deductible_tracker
 
-**Crate:** `contracts/deductible_tracker/`  
+**Crate:** [contracts/deductible_tracker/](https://github.com/Marshal-AM/zklaim/blob/main/contracts/deductible_tracker/src/lib.rs#L53)  
 **Role:** Per-patient private accumulator state (commitment only).
 
 #### Storage
@@ -942,7 +995,7 @@ The insurer signs `register_policy` with their own key — on-chain policy bindi
 
 ### claim_escrow
 
-**Crate:** `contracts/claim_escrow/`  
+**Crate:** [contracts/claim_escrow/](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50)  
 **Role:** Settlement orchestrator — the heart of ZKlaim.
 
 #### Configuration (instance storage)
@@ -961,7 +1014,7 @@ The insurer signs `register_policy` with their own key — on-chain policy bindi
 
 #### `submit_claim` validation pipeline
 
-`submit_claim(env, patient, pkg)` executes the following **in order**:
+[`submit_claim(env, patient, pkg)`](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/lib.rs#L50) executes the following **in order** (see also [escrow.rs](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/escrow.rs)):
 
 ```
 1. patient.require_auth()
@@ -996,7 +1049,7 @@ flowchart LR
 
 #### Payout computation
 
-From `contracts/claim_escrow/src/escrow.rs`:
+From [contracts/claim_escrow/src/escrow.rs](https://github.com/Marshal-AM/zklaim/blob/main/contracts/claim_escrow/src/escrow.rs#L22):
 
 ```rust
 pub fn compute_payout(env: &Env, payout_amount: i128, deductible_met: bool) -> i128 {
@@ -1031,7 +1084,7 @@ If deductible **not** met: insurer pays 80%, patient effectively retains 20% as 
 
 ### passport_registry
 
-**Crate:** `contracts/passport_registry/`  
+**Crate:** [contracts/passport_registry/](https://github.com/Marshal-AM/zklaim/blob/main/contracts/passport_registry/src/lib.rs#L120)  
 **Role:** Per-patient claim passport and ZK credential issuance.
 
 #### Storage
@@ -1081,7 +1134,7 @@ leaf = Poseidon2([settled_nullifier, leaf_secret, icd_letter, amount_bucket, vis
 
 ### ClaimPackage Wire Format
 
-The `ClaimPackage` struct (`contracts/common/src/types.rs`) is the atomic unit of settlement:
+The `ClaimPackage` struct ([contracts/common/src/types.rs](https://github.com/Marshal-AM/zklaim/blob/main/contracts/common/src/types.rs#L6)) is the atomic unit of settlement:
 
 ```rust
 pub struct ClaimPackage {
@@ -1102,7 +1155,7 @@ pub struct ClaimPackage {
 }
 ```
 
-**Total ZK proof payload per claim:** 4 × 14,592 = **58,368 bytes** of proof data, plus public inputs and fraud path — encoded to Soroban SCVal by `client/proof_gen/stellar/encoding.ts`.
+**Total ZK proof payload per claim:** 4 × 14,592 = **58,368 bytes** of proof data, plus public inputs and fraud path — encoded to Soroban SCVal by [stellar/encoding.ts](https://github.com/Marshal-AM/zklaim/blob/main/client/proof_gen/stellar/encoding.ts#L1).
 
 The `deductible_met` boolean is encoded as a field element with byte 31 set to `1` when true (`field_is_true` in escrow.rs).
 
@@ -1132,7 +1185,7 @@ The patient presses Submit. The chain sees a nullifier, commitments, roots, a bo
 | USDC payout (coinsurance-adjusted) | Individual passport leaf secrets |
 | `billing_pattern_hash` (coarse bucket) | Patient medical history plaintext |
 
-The hackathon **demo reveal moment**: open the settlement transaction on [Stellar Expert](https://stellar.expert/explorer/testnet). Inspect Soroban events. One nullifier. One accumulator update. One USDC transfer. Zero medical data. Zero diagnosis. The ICD code **J18.9** (pneumonia) never appears — yet the insurer paid a valid claim under a real policy with a licensed physician's attestation.
+The hackathon **demo reveal moment**: open the settlement transaction on [Stellar Expert](https://stellar.expert/explorer/testnet/tx/f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61) ([`submit_claim.log`](https://github.com/Marshal-AM/zklaim/blob/main/logs/submit_claim.log) lines 897–944). Inspect Soroban events. One nullifier. One accumulator update. One USDC transfer. Zero medical data. Zero diagnosis. The ICD code **J18.9** (pneumonia) never appears — yet the insurer paid a valid claim under a real policy with a licensed physician's attestation.
 
 ### Technical Contributions
 
