@@ -13,6 +13,9 @@ function ensureDir(path) {
 function copyRequired(src, dest) {
   if (!existsSync(src)) {
     console.error(`Missing required asset: ${src}`);
+    console.error(
+      "Run npm run build:trees first (trees are generated, not committed).",
+    );
     process.exit(1);
   }
   ensureDir(dirname(dest));

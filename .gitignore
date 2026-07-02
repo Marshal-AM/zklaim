@@ -34,12 +34,4 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# Generated artifacts (rebuilt via npm run build:trees)
-scripts/artifacts/*.json
-!scripts/artifacts/.gitkeep
-
-# App public copies (regenerated)
-app/public/trees/*.json
-!app/public/trees/.gitkeep
-
 .stellar/

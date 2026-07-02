@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-07-02T11:09:23.527Z",
+  "merkle_depth": 10,
+  "roots": {
+    "policy_coverage": "0x080072aa0d6d0b1dc8a2b727b484ee6c2b4fd0e6280bbe256f3373fd4120f271",
+    "physician_asp": "0x27d0c85ac20c778719d99f0aa8bdb20a3ea17ad1bf8c48a9a6ee57994ee08dd5",
+    "fraud_asp": "0x2b854a8f9e83eab13d37360e6e31f0930b14ab38316faf3a698720f646f717a1"
+  },
+  "demo": {
+    "icd_code": "J18.9",
+    "enrolled_doctor_wallet": "GDRPHDEMOENROLLEDDOCTOR00000000000000000000000001",
+    "unenrolled_doctor_wallet": "GDRPHDEMOUNENROLLEDDOCTOR000000000000000000000001",
+    "deductible_demo_threshold_cents": 100000
+  }
+}
