@@ -137,6 +137,7 @@ Circuit IDs: [circuit_ids.rs](https://github.com/Marshal-AM/zklaim/blob/main/con
    - [passport_registry](https://github.com/Marshal-AM/zklaim/blob/main/README.md#passport_registry)
    - [ClaimPackage Wire Format](https://github.com/Marshal-AM/zklaim/blob/main/README.md#claimpackage-wire-format)
 7. [Conclusion](https://github.com/Marshal-AM/zklaim/blob/main/README.md#conclusion)
+   - [Why we're building on Stellar](https://github.com/Marshal-AM/zklaim/blob/main/README.md#why-were-building-on-stellar)
 
 ---
 
@@ -1288,3 +1289,11 @@ The hackathon **demo reveal moment**: open the settlement transaction on [Stella
 - Multi-insurer policy routing and cross-plan accumulator semantics
 - Credential marketplace with verifier staking and TTL policies
 - Positive membership credentials (prove category *presence* without full record) and multi-category exclusion sets
+
+### Why we're building on Stellar
+
+We built ZKlaim because filing a claim should not mean surrendering your medical history to an insurer, an employer, or a data broker. Patients deserve to get paid for legitimate care and to answer only the questions a third party actually needs, not hand over every visit on a PDF.
+
+Stellar is the right home for that vision. Native BN254 verification, Poseidon2, and USDC settlement let us prove **real-world domain logic** — licensed providers, policy rules, fraud checks, deductible state, in a single atomic transaction. We want ZKlaim to be a reference for what Soroban ZK can unlock beyond payments: regulated, privacy-preserving applications that institutions can actually adopt.
+
+We've shipped a working testnet demo ([live app](https://zklaim-app-lilac.vercel.app/), [settlement tx](https://stellar.expert/explorer/testnet/tx/f4600e4afd664c87faa41f4f806e94b3a141866b9ce4c5868ff8a36274246c61)). **Funding would help us execute the roadmap above** — mainnet deployment, full ICD-10 coverage, insurer onboarding, and a credential layer patients can use long after payout. We believe this belongs on Stellar, and we're committed to building it here.
