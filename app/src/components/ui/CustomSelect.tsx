@@ -1,4 +1,12 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 
 export interface SelectOption {
   value: string;
@@ -14,9 +22,20 @@ interface CustomSelectProps {
   placeholder?: string;
   id?: string;
   className?: string;
-  /** Max visible rows before scrolling (default 8). */
+  /** Max visible rows before scrolling (default 6). */
   maxVisibleRows?: number;
 }
+
+interface ListPosition {
+  top: number;
+  left: number;
+  width: number;
+  maxHeight: number;
+}
+
+const ROW_PX = 44;
+const LIST_GAP_PX = 8;
+const VIEWPORT_PAD_PX = 12;
 
 function ChevronDown({ className }: { className?: string }) {
   return (
@@ -33,6 +52,37 @@ function ChevronDown({ className }: { className?: string }) {
   );
 }
 
+function computeListPosition(
+  trigger: HTMLElement,
+  maxVisibleRows: number,
+): ListPosition {
+  const rect = trigger.getBoundingClientRect();
+  const preferredMax = Math.min(
+    maxVisibleRows * ROW_PX,
+    window.innerHeight * 0.45,
+  );
+  const spaceBelow =
+    window.innerHeight - rect.bottom - LIST_GAP_PX - VIEWPORT_PAD_PX;
+  const spaceAbove = rect.top - LIST_GAP_PX - VIEWPORT_PAD_PX;
+
+  const openBelow = spaceBelow >= ROW_PX * 2 || spaceBelow >= spaceAbove;
+  const maxHeight = Math.max(
+    ROW_PX * 2,
+    Math.min(preferredMax, openBelow ? spaceBelow : spaceAbove),
+  );
+
+  const top = openBelow
+    ? rect.bottom + LIST_GAP_PX
+    : rect.top - LIST_GAP_PX - maxHeight;
+
+  return {
+    top: Math.max(VIEWPORT_PAD_PX, top),
+    left: rect.left,
+    width: rect.width,
+    maxHeight,
+  };
+}
+
 export function CustomSelect({
   options,
   value,
@@ -40,14 +90,15 @@ export function CustomSelect({
   placeholder = "Select…",
   id: idProp,
   className = "",
-  maxVisibleRows = 8,
+  maxVisibleRows = 6,
 }: CustomSelectProps) {
   const autoId = useId();
   const id = idProp ?? autoId;
   const listboxId = `${id}-listbox`;
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<ListPosition | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const selectedOptionRef = useRef<HTMLButtonElement>(null);
   const selected = options.find((o) => o.value === value) ?? null;
@@ -57,21 +108,45 @@ export function CustomSelect({
     [options],
   );
 
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    setPosition(computeListPosition(triggerRef.current, maxVisibleRows));
+  }, [maxVisibleRows]);
+
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setPosition(null);
+      return;
+    }
+    updatePosition();
     const selectedIdx = enabledOptions.findIndex((o) => o.value === value);
     setActiveIndex(selectedIdx >= 0 ? selectedIdx : 0);
     requestAnimationFrame(() => {
       selectedOptionRef.current?.scrollIntoView({ block: "nearest" });
     });
-  }, [open, value, enabledOptions]);
+  }, [open, value, enabledOptions, updatePosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, updatePosition]);
 
   useEffect(() => {
     if (!open) return;
     function handlePointerDown(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
+      const target = e.target as Node;
+      if (
+        triggerRef.current?.contains(target) ||
+        listRef.current?.contains(target)
+      ) {
+        return;
       }
+      setOpen(false);
     }
     document.addEventListener("mousedown", handlePointerDown);
     return () => document.removeEventListener("mousedown", handlePointerDown);
@@ -85,7 +160,7 @@ export function CustomSelect({
         setOpen(false);
         return;
       }
-      if (!open || enabledOptions.length === 0) return;
+      if (enabledOptions.length === 0) return;
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -127,12 +202,74 @@ export function CustomSelect({
     setOpen(false);
   }
 
-  // ~2.75rem row height × visible rows, capped at half the viewport
-  const listMaxHeight = `min(${maxVisibleRows * 2.75}rem, 50vh)`;
+  const listbox =
+    open && position ? (
+      <div
+        id={listboxId}
+        ref={listRef}
+        role="listbox"
+        aria-label={placeholder}
+        className="fixed z-[200] overflow-y-auto overscroll-contain rounded-xl border border-border bg-card shadow-[0_16px_48px_rgba(0,0,0,0.35)] [scrollbar-gutter:stable]"
+        style={{
+          top: position.top,
+          left: position.left,
+          width: position.width,
+          maxHeight: position.maxHeight,
+        }}
+      >
+        {options.map(({ value: optValue, label, description, disabled }) => {
+          const enabledIdx = enabledOptions.findIndex(
+            (o) => o.value === optValue,
+          );
+          const isSelected = value === optValue;
+          const isActive = !disabled && enabledIdx === activeIndex;
+          return (
+            <button
+              key={optValue}
+              ref={isSelected ? selectedOptionRef : undefined}
+              type="button"
+              role="option"
+              aria-selected={isSelected}
+              disabled={disabled}
+              onClick={() => selectOption(optValue)}
+              className={`flex min-h-11 w-full touch-manipulation flex-col justify-center gap-0.5 px-4 py-2.5 text-left text-sm transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-40 ${
+                isSelected ? "bg-primary/10" : ""
+              } ${isActive && !isSelected ? "bg-muted/30" : ""}`}
+            >
+              <span className="flex items-center justify-between gap-2 font-[650]">
+                {label}
+                {isSelected ? (
+                  <svg
+                    className="h-4 w-4 shrink-0 text-primary"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    aria-hidden
+                  >
+                    <path
+                      d="M20 6 9 17l-5-5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : null}
+              </span>
+              {description ? (
+                <span className="text-xs text-muted-foreground">
+                  {description}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    ) : null;
 
   return (
-    <div ref={rootRef} className={`relative w-full ${className}`}>
+    <div className={`relative w-full ${className}`}>
       <button
+        ref={triggerRef}
         id={id}
         type="button"
         aria-haspopup="listbox"
@@ -155,63 +292,7 @@ export function CustomSelect({
         />
       </button>
 
-      {open ? (
-        <div
-          id={listboxId}
-          ref={listRef}
-          role="listbox"
-          aria-label={placeholder}
-          className="absolute left-0 right-0 z-50 mt-2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card shadow-[0_16px_48px_rgba(0,0,0,0.35)] [scrollbar-gutter:stable]"
-          style={{ maxHeight: listMaxHeight }}
-        >
-          {options.map(({ value: optValue, label, description, disabled }) => {
-            const enabledIdx = enabledOptions.findIndex(
-              (o) => o.value === optValue,
-            );
-            const isSelected = value === optValue;
-            const isActive = !disabled && enabledIdx === activeIndex;
-            return (
-              <button
-                key={optValue}
-                ref={isSelected ? selectedOptionRef : undefined}
-                type="button"
-                role="option"
-                aria-selected={isSelected}
-                disabled={disabled}
-                onClick={() => selectOption(optValue)}
-                className={`flex min-h-11 w-full touch-manipulation flex-col justify-center gap-0.5 px-4 py-2.5 text-left text-sm transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-40 ${
-                  isSelected ? "bg-primary/10" : ""
-                } ${isActive && !isSelected ? "bg-muted/30" : ""}`}
-              >
-                <span className="flex items-center justify-between gap-2 font-[650]">
-                  {label}
-                  {isSelected ? (
-                    <svg
-                      className="h-4 w-4 shrink-0 text-primary"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      aria-hidden
-                    >
-                      <path
-                        d="M20 6 9 17l-5-5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  ) : null}
-                </span>
-                {description ? (
-                  <span className="text-xs text-muted-foreground">
-                    {description}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+      {listbox ? createPortal(listbox, document.body) : null}
     </div>
   );
 }
